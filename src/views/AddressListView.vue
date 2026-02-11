@@ -14,6 +14,13 @@
               <span v-else>Загрузка…</span>
             </div>
           </div>
+          <v-btn
+  variant="text"
+  prepend-icon="mdi-printer"
+  @click="goToPrint"
+>
+  Печать / PDF
+</v-btn>
           <v-btn variant="text" prepend-icon="mdi-filter-variant" @click="filtersSheet = true">
             Фильтры
           </v-btn>
@@ -555,4 +562,15 @@ onMounted(() => {
     addressesStore.fetchAddresses();
   }
 });
+
+const goToPrint = () => {
+  router.push({
+    name: "AddressPrint",
+    query: {
+      search: search.value || "",
+      mode: mode.value || "search",
+      settlement: settlementFilter.value || "",
+    },
+  });
+};
 </script>

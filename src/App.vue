@@ -131,4 +131,14 @@ body,
   height: 100%;
   margin: 0;
 }
+
+@media print {
+  .v-app-bar,
+  .v-bottom-navigation {
+    display: none !important;
+  }
+  .v-main {
+    padding-top: 0 !important;
+  }
+}
 </style>

@@ -57,6 +57,11 @@ const routes = [
     component: PeopleEditView,
     props: true,
   },
+  {
+  path: "/addresses/print",
+  name: "AddressPrint",
+  component: () => import("../views/AddressPrintView.vue"),
+},
 ];
 
 const router = createRouter({
