@@ -2,7 +2,40 @@
 <template>
   <div>
     <v-row class="mb-4" align="center">
-      <v-col cols="12" md="6">
+      
+
+      <v-col cols="12" class="align-center">
+        
+     <div class="d-flex align-center justify-space-between">
+            <div>
+            <div class="text-h6">Люди</div>
+            <div class="text-body-2 text-medium-emphasis">
+              <span v-if="!peopleStore.loading">
+                Всего: {{ filteredPeople.length }}
+              </span>
+              <span v-else>Загрузка…</span>
+            </div>
+          </div>
+
+        <v-btn
+            variant="text"
+            prepend-icon="mdi-filter-variant"
+            @click="filtersSheet = true"
+          >
+          
+            Фильтры
+            <v-badge
+            v-if="activeFiltersCount"
+            :content="activeFiltersCount"
+            color="primary"
+            class="ml-2"
+            inline
+          />
+          </v-btn>
+</div>
+      </v-col>
+
+      <v-col cols="12" >
         <v-text-field
           v-model="search"
           label="Поиск по ФИО, телефону, работе, адресу"
@@ -13,28 +46,6 @@
           density="comfortable"
         />
       </v-col>
-
-      <v-col cols="12" md="6" class="d-flex align-center justify-space-between">
-        <div class="text-body-2 text-medium-emphasis">
-          <span v-if="!peopleStore.loading">Всего: {{ filteredPeople.length }}</span>
-          <span v-else>Загрузка...</span>
-        </div>
-
-        <v-btn
-          variant="tonal"
-          prepend-icon="mdi-filter-variant"
-          @click="filtersSheet = true"
-        >
-          Фильтры
-          <v-badge
-            v-if="activeFiltersCount"
-            :content="activeFiltersCount"
-            color="primary"
-            class="ml-2"
-            inline
-          />
-        </v-btn>
-      </v-col>
     </v-row>
 
     <v-alert v-if="peopleStore.error" type="error" variant="outlined" class="mb-4">
@@ -42,77 +53,52 @@
     </v-alert>
 
     <v-row v-if="peopleStore.loading">
-      <v-col v-for="n in 3" :key="n" cols="12" md="6" lg="4">
-        <v-skeleton-loader type="card" class="mb-4" />
+      <v-col v-for="n in 3" :key="n" cols="12">
+        <v-skeleton-loader type="list-item-two-line" class="mb-2" />
       </v-col>
     </v-row>
 
-    <v-row v-else-if="filteredPeople.length">
-      <v-col v-for="person in filteredPeople" :key="person.id" cols="12" md="6" lg="4">
-        <v-card class="mb-4" hover elevation="2" @click="goToDetail(person.id)">
-          <v-card-title class="d-flex justify-space-between align-center text-body-1">
-            <span>{{ formatFullName(person) }}</span>
+    <!-- ТОНКИЙ СПИСОК -->
+    <v-card v-else rounded="lg" border>
+      <v-list v-if="filteredPeople.length" density="compact">
+        <v-list-item
+          v-for="p in filteredPeople"
+          :key="p.id"
+          @click="goToDetail(p.id)"
+          class="cursor-pointer"
+        >
+          <v-list-item-title class="text-body-2">
+            {{ formatFullName(p) }}
+          </v-list-item-title>
+
+          <template #append>
             <v-btn
               icon="mdi-delete"
               size="small"
               color="red"
               variant="text"
-              @click.stop="confirmDelete(person)"
+              @click.stop="confirmDelete(p)"
             />
-          </v-card-title>
+          </template>
+        </v-list-item>
+      </v-list>
 
-          <v-card-subtitle class="pb-0">
-            <div class="d-flex flex-wrap align-center ga-2">
-              <v-chip v-if="person.isDeceased" size="x-small" color="grey" variant="tonal">
-                умер(ла){{ person.deathYear ? ` · ${person.deathYear}` : "" }}
-              </v-chip>
+      <v-card-text v-else class="text-center text-medium-emphasis">
+        Люди не найдены
+      </v-card-text>
+    </v-card>
 
-              <span v-if="person.religion" class="text-medium-emphasis">
-                {{ person.religion }}
-              </span>
+    <!-- FAB добавления (как на адресах) -->
+    <v-btn
+      color="primary"
+      icon="mdi-plus"
+      class="position-fixed"
+      style="right: 20px; bottom: 84px;"
+      size="large"
+      @click="goToCreate"
+    />
 
-              <span v-if="person.phone" class="text-medium-emphasis">
-                <v-icon icon="mdi-phone" size="small" class="mr-1" />
-                {{ person.phone }}
-              </span>
-            </div>
-          </v-card-subtitle>
-
-          <v-card-text>
-            <div class="text-body-2 mb-1">
-              <v-icon icon="mdi-home-map-marker" size="small" class="mr-1" />
-              <span v-if="personAddressTitle(person)" class="text-medium-emphasis">
-                {{ personAddressTitle(person) }}
-              </span>
-              <span v-else class="text-disabled">Адрес не указан</span>
-            </div>
-
-            <div class="text-body-2">
-              <v-icon icon="mdi-briefcase" size="small" class="mr-1" />
-              <span v-if="person.profession || person.workplace">
-                {{ person.profession }}
-                {{ person.workplace ? "(" + person.workplace + ")" : "" }}
-              </span>
-              <span v-else class="text-disabled">Нет данных о работе</span>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <v-row v-else>
-      <v-col cols="12">
-        <v-sheet class="pa-6 text-center" color="grey-lighten-4" elevation="1" rounded="lg">
-          <v-icon icon="mdi-account-search-outline" size="48" class="mb-2" />
-          <div class="text-h6 mb-1">Люди не найдены</div>
-          <div class="text-body-2 text-medium-emphasis mb-4">
-            Попробуйте изменить условия поиска или добавить нового человека.
-          </div>
-        </v-sheet>
-      </v-col>
-    </v-row>
-
-    <!-- Bottom sheet: фильтры (как на адресах) -->
+    <!-- Bottom sheet: фильтры -->
     <v-bottom-sheet v-model="filtersSheet">
       <v-card>
         <v-card-title class="text-h6">Фильтры</v-card-title>
@@ -203,7 +189,9 @@
           <p v-if="personToDelete" class="font-weight-medium">
             {{ formatFullName(personToDelete) }}
           </p>
-          <p class="text-body-2 text-medium-emphasis">Это действие нельзя будет отменить.</p>
+          <p class="text-body-2 text-medium-emphasis">
+            Это действие нельзя будет отменить.
+          </p>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -218,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 
 import { usePeopleStore } from "../stores/people";
@@ -234,8 +222,8 @@ const appUi = useAppUiStore();
 const search = ref("");
 
 const filtersSheet = ref(false);
+const settlementFilter = ref(null);
 
-// фильтры
 const filters = ref({
   religion: null,
   sex: "any",
@@ -244,9 +232,6 @@ const filters = ref({
   hasPhone: false,
   hasAddress: false,
 });
-
-// фильтр населённого пункта (строка)
-const settlementFilter = ref(null);
 
 const religionOptions = [
   { label: "Католик", value: "католик" },
@@ -313,14 +298,6 @@ const personAddress = (p) => {
   return id ? addressById.value.get(id) || null : null;
 };
 
-const personAddressTitle = (p) => {
-  const a = personAddress(p);
-  if (!a) return "";
-  const apt = a.apartment ? `-${a.apartment}` : "";
-  return `${a.localityName}, ${a.street} ${a.house}${apt}`;
-};
-
-// список населённых пунктов для combobox (уникальные)
 const settlementOptions = computed(() => {
   const set = new Set();
   (addressesStore.addresses || []).forEach((a) => {
@@ -347,30 +324,22 @@ const filteredPeople = computed(() => {
   const term = search.value.trim().toLowerCase();
   const settlementTerm = String(settlementFilter.value || "").trim().toLowerCase();
 
-  const base = [...(peopleStore.people || [])];
-
-  base.sort((a, b) => {
+  const base = [...(peopleStore.people || [])].sort((a, b) => {
     const aa = `${a.lastName || ""} ${a.firstName || ""} ${a.middleName || ""}`.trim().toLowerCase();
     const bb = `${b.lastName || ""} ${b.firstName || ""} ${b.middleName || ""}`.trim().toLowerCase();
     return aa.localeCompare(bb, "ru");
   });
 
   return base.filter((p) => {
-    // религия
     if (filters.value.religion && p.religion !== filters.value.religion) return false;
-
-    // пол
     if (filters.value.sex !== "any" && p.sex !== filters.value.sex) return false;
 
-    // статус
     if (filters.value.lifeStatus === "alive" && p.isDeceased) return false;
     if (filters.value.lifeStatus === "deceased" && !p.isDeceased) return false;
 
-    // наличие телефона/адреса
     if (filters.value.hasPhone && !String(p.phone || "").trim()) return false;
     if (filters.value.hasAddress && !String(p.addressId || "").trim()) return false;
 
-    // возрастная группа
     if (filters.value.ageGroup !== "any") {
       const age = estimateAge(p.birthDate);
       if (age == null) return false;
@@ -378,33 +347,20 @@ const filteredPeople = computed(() => {
       if (filters.value.ageGroup === "adult" && age < 18) return false;
     }
 
-    // населённый пункт (по адресу)
     if (settlementTerm) {
       const a = personAddress(p);
       const name = String(a?.localityName || "").trim().toLowerCase();
-      if (!name) return false;
-      if (!name.includes(settlementTerm)) return false;
+      if (!name || !name.includes(settlementTerm)) return false;
     }
 
-    // поиск
     if (!term) return true;
 
+    const a = personAddress(p);
     const haystack = [
-      p.lastName,
-      p.firstName,
-      p.middleName,
-      p.phone,
-      p.profession,
-      p.workplace,
-      p.religion,
-      personAddressTitle(p),
-      personAddress(p)?.localityName,
-      personAddress(p)?.street,
-      personAddress(p)?.house,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+      p.lastName, p.firstName, p.middleName,
+      p.phone, p.profession, p.workplace, p.religion,
+      a?.localityName, a?.street, a?.house,
+    ].filter(Boolean).join(" ").toLowerCase();
 
     return haystack.includes(term);
   });
@@ -434,18 +390,12 @@ const resetFilters = () => {
   settlementFilter.value = null;
 };
 
+// AppBar: без назад и без кнопки добавить
 const setAppBar = () => {
   appUi.set({
     title: "Люди",
-    showBack: true,
-    backTo: { name: "AddressList" }, // поменяй если нужно
-    actions: [
-      {
-        icon: "mdi-account-plus",
-        label: "Добавить",
-        onClick: goToCreate, // если у AppBar нет onClick — замени на to
-      },
-    ],
+    showBack: false,
+    actions: [],
   });
 };
 
@@ -460,9 +410,11 @@ onMounted(async () => {
   }
 });
 
-watch([() => peopleStore.people.length, () => addressesStore.addresses.length], () => setAppBar());
-
-onUnmounted(() => {
-  appUi.reset();
-});
+onUnmounted(() => appUi.reset());
 </script>
+
+<style scoped>
+.cursor-pointer {
+  cursor: pointer;
+}
+</style>

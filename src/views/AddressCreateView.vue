@@ -93,11 +93,29 @@
                               <v-text-field
                                 v-model="husband.birthDate"
                                 label="Дата рождения"
-                                type="date"
+                                
                                 variant="outlined"
                                 density="comfortable"
                               />
                             </v-col>
+                                                   <!-- Профессия / работа -->
+      <v-col cols="12" md="6">
+        <v-text-field
+          v-model="husband.profession"
+          label="Профессия"
+          variant="outlined"
+          density="comfortable"
+        />
+      </v-col>
+
+      <v-col cols="12" md="6">
+        <v-text-field
+          v-model="husband.workplace"
+          label="Место работы"
+          variant="outlined"
+          density="comfortable"
+        />
+      </v-col>
                             <v-col cols="12">
                               <v-select
                                 v-model="husband.religion"
@@ -187,11 +205,30 @@
                               <v-text-field
                                 v-model="wife.birthDate"
                                 label="Дата рождения"
-                                type="date"
+                                
                                 variant="outlined"
                                 density="comfortable"
                               />
                             </v-col>
+
+                            <!-- Профессия / работа -->
+      <v-col cols="12" md="6">
+        <v-text-field
+          v-model="wife.profession"
+          label="Профессия"
+          variant="outlined"
+          density="comfortable"
+        />
+      </v-col>
+
+      <v-col cols="12" md="6">
+        <v-text-field
+          v-model="wife.workplace"
+          label="Место работы"
+          variant="outlined"
+          density="comfortable"
+        />
+      </v-col>
                             <v-col cols="12">
                               <v-select
                                 v-model="wife.religion"
@@ -335,6 +372,7 @@ const marriage = reactive({
 
 const religionOptions = [
   { label: "Католик", value: "католик" },
+  { label: "Греко-католик", value: "греко-католик" },
   { label: "Православный", value: "православный" },
   { label: "Старовер", value: "старовер" },
   { label: "Некрещенный", value: "некрещенный" },

@@ -52,7 +52,7 @@
         <v-text-field
           v-model="localValue.birthDate"
           label="Дата рождения"
-          type="date"
+          
           variant="outlined"
           density="comfortable"
         />
@@ -134,37 +134,79 @@
           persistent-hint
         />
       </v-col>
+<!-- Таинства -->
+<v-col cols="12" md="4">
+  <div class="d-flex align-center justify-space-between">
+    <v-switch v-model="baptismBool" label="Крещён(а)" inset />
+    <v-btn size="x-small" variant="text" @click="localValue.baptism = null">
+      очистить
+    </v-btn>
+  </div>
+  <div class="text-caption text-medium-emphasis mb-2">
+    <span v-if="localValue.baptism === null">не указано</span>
+    <span v-else-if="localValue.baptism === true">да</span>
+    <span v-else>нет</span>
+  </div>
+  <v-text-field
+    v-if="localValue.baptism === true"
+    v-model.number="localValue.baptismYear"
+    label="Год крещения (если известен)"
+    type="number"
+    variant="outlined"
+    density="comfortable"
+    clearable
+  />
+</v-col>
 
-      <!-- Таинства -->
-      <v-col cols="12" md="4">
-        <v-text-field
-          v-model.number="localValue.baptismYear"
-          label="Год крещения"
-          type="number"
-          variant="outlined"
-          density="comfortable"
-        />
-      </v-col>
+<v-col cols="12" md="4">
+  <div class="d-flex align-center justify-space-between">
+    <v-switch v-model="chrismationBool" label="Миропомаз." inset />
+    <v-btn size="x-small" variant="text" @click="localValue.chrismation = null">
+      очистить
+    </v-btn>
+  </div>
+  <div class="text-caption text-medium-emphasis mb-2">
+    <span v-if="localValue.chrismation === null">не указано</span>
+    <span v-else-if="localValue.chrismation === true">да</span>
+    <span v-else>нет</span>
+  </div>
+  <v-text-field
+    v-if="localValue.chrismation === true"
+    v-model.number="localValue.chrismationYear"
+    label="Год миропомазания (если известен)"
+    type="number"
+    variant="outlined"
+    density="comfortable"
+    clearable
+  />
+</v-col>
 
-      <v-col cols="12" md="4">
-        <v-text-field
-          v-model.number="localValue.chrismationYear"
-          label="Год миропомазания"
-          type="number"
-          variant="outlined"
-          density="comfortable"
-        />
-      </v-col>
-
-      <v-col cols="12" md="4">
-        <v-text-field
-          v-model.number="localValue.firstCommunionYear"
-          label="Год первого причастия"
-          type="number"
-          variant="outlined"
-          density="comfortable"
-        />
-      </v-col>
+<v-col cols="12" md="4">
+  <div class="d-flex align-center justify-space-between">
+    <v-switch v-model="firstCommunionBool" label="Причастие" inset />
+    <v-btn
+      size="x-small"
+      variant="text"
+      @click="localValue.firstCommunion = null"
+    >
+      очистить
+    </v-btn>
+  </div>
+  <div class="text-caption text-medium-emphasis mb-2">
+    <span v-if="localValue.firstCommunion === null">не указано</span>
+    <span v-else-if="localValue.firstCommunion === true">да</span>
+    <span v-else>нет</span>
+  </div>
+  <v-text-field
+    v-if="localValue.firstCommunion === true"
+    v-model.number="localValue.firstCommunionYear"
+    label="Год причастия (если известен)"
+    type="number"
+    variant="outlined"
+    density="comfortable"
+    clearable
+  />
+</v-col>
 
       <!-- Катехезы / месса и исповедь -->
       <v-col cols="12" md="4">
@@ -291,8 +333,13 @@ const localValue = ref({
   workplace: "",
   religion: "",
   phone: "",
+ baptism: null,              // true/false/null
   baptismYear: null,
+
+  chrismation: null,          // true/false/null
   chrismationYear: null,
+
+  firstCommunion: null,       // true/false/null
   firstCommunionYear: null,
   catechesis: null, // true/false/null
   massAndConfession: "",
@@ -323,6 +370,25 @@ const fullNameWithYear = (p) => {
   return year ? `${base} (${year})` : base;
 };
 
+const peopleById = computed(() => {
+  const m = new Map();
+  (peopleStore.people || []).forEach((p) => {
+    if (p?.id) m.set(String(p.id), p);
+  });
+  return m;
+});
+
+const optionForId = (id) => {
+  const sid = id ? String(id) : "";
+  if (!sid) return null;
+
+  const p = peopleById.value.get(sid);
+  return {
+    value: sid,
+    label: p ? fullNameWithYear(p) : `(не найдено) ${sid}`,
+  };
+};
+
 const currentBirthYear = computed(() => {
   const bd = localValue.value.birthDate;
   if (!bd || String(bd).length < 4) return null;
@@ -342,10 +408,11 @@ const isOlderThanChild = (candidate) => {
 };
 
 const currentId = computed(() => localValue.value.id || props.value?.id || null);
-
 const fatherOptions = computed(() => {
   const cid = currentId.value;
-  return (peopleStore.people || [])
+  const selectedId = localValue.value.fatherId ? String(localValue.value.fatherId) : null;
+
+  const base = (peopleStore.people || [])
     .filter((p) => {
       if (!p) return false;
       if (p.sex !== "male") return false;
@@ -354,13 +421,22 @@ const fatherOptions = computed(() => {
       if (!isOlderThanChild(p)) return false;
       return true;
     })
-    .map((p) => ({ value: p.id, label: fullNameWithYear(p) }))
+    .map((p) => ({ value: String(p.id), label: fullNameWithYear(p) }))
     .sort((a, b) => a.label.localeCompare(b.label, "ru"));
-});
 
+  // если выбранный отец не попал в base — добавим его сверху
+  if (selectedId && !base.some((x) => x.value === selectedId)) {
+    const opt = optionForId(selectedId);
+    if (opt) base.unshift(opt);
+  }
+
+  return base;
+});
 const motherOptions = computed(() => {
   const cid = currentId.value;
-  return (peopleStore.people || [])
+  const selectedId = localValue.value.motherId ? String(localValue.value.motherId) : null;
+
+  const base = (peopleStore.people || [])
     .filter((p) => {
       if (!p) return false;
       if (p.sex !== "female") return false;
@@ -369,8 +445,15 @@ const motherOptions = computed(() => {
       if (!isOlderThanChild(p)) return false;
       return true;
     })
-    .map((p) => ({ value: p.id, label: fullNameWithYear(p) }))
+    .map((p) => ({ value: String(p.id), label: fullNameWithYear(p) }))
     .sort((a, b) => a.label.localeCompare(b.label, "ru"));
+
+  if (selectedId && !base.some((x) => x.value === selectedId)) {
+    const opt = optionForId(selectedId);
+    if (opt) base.unshift(opt);
+  }
+
+  return base;
 });
 
 // tri-state catechesis через switch + “очистить”
@@ -382,6 +465,72 @@ const catechesisBool = computed({
     localValue.value.catechesis = v ? true : false;
   },
 });
+const baptismBool = computed({
+  get() {
+    return localValue.value.baptism === true;
+  },
+  set(v) {
+    localValue.value.baptism = v ? true : false;
+  },
+});
+
+const chrismationBool = computed({
+  get() {
+    return localValue.value.chrismation === true;
+  },
+  set(v) {
+    localValue.value.chrismation = v ? true : false;
+  },
+});
+
+const firstCommunionBool = computed({
+  get() {
+    return localValue.value.firstCommunion === true;
+  },
+  set(v) {
+    localValue.value.firstCommunion = v ? true : false;
+  },
+});
+
+// если флаг не true — год чистим
+watch(
+  () => localValue.value.baptism,
+  (v) => {
+    if (v !== true) localValue.value.baptismYear = null;
+  }
+);
+watch(
+  () => localValue.value.chrismation,
+  (v) => {
+    if (v !== true) localValue.value.chrismationYear = null;
+  }
+);
+watch(
+  () => localValue.value.firstCommunion,
+  (v) => {
+    if (v !== true) localValue.value.firstCommunionYear = null;
+  }
+);
+
+// если ввели год — автоматически ставим "да"
+watch(
+  () => localValue.value.baptismYear,
+  (y) => {
+    if (y != null && localValue.value.baptism !== true) localValue.value.baptism = true;
+  }
+);
+watch(
+  () => localValue.value.chrismationYear,
+  (y) => {
+    if (y != null && localValue.value.chrismation !== true) localValue.value.chrismation = true;
+  }
+);
+watch(
+  () => localValue.value.firstCommunionYear,
+  (y) => {
+    if (y != null && localValue.value.firstCommunion !== true) localValue.value.firstCommunion = true;
+  }
+);
 
 watch(
   () => localValue.value.isDeceased,
@@ -423,12 +572,26 @@ watch(isValid, (val) => {
   emit("validity-change", val);
 });
 
+function normTri(v) {
+  return v === true ? true : v === false ? false : null;
+}
+
 function setLocalFromProps(src) {
   const s = src || {};
+
+  // если флагов в старых документах нет, но год указан — считаем "да"
+  const baptismFlag =
+    s.baptism !== undefined ? normTri(s.baptism) : (s.baptismYear != null ? true : null);
+  const chrismationFlag =
+    s.chrismation !== undefined ? normTri(s.chrismation) : (s.chrismationYear != null ? true : null);
+  const firstCommunionFlag =
+    s.firstCommunion !== undefined ? normTri(s.firstCommunion) : (s.firstCommunionYear != null ? true : null);
+
   localValue.value = {
     ...localValue.value,
     ...s,
-    // гарантируем типы
+
+    // ... твои текущие нормализации
     isDeceased: Boolean(s.isDeceased),
     deathYear: s.isDeceased ? (s.deathYear ?? null) : null,
     childrenIds: Array.isArray(s.childrenIds) ? s.childrenIds : [],
@@ -437,6 +600,16 @@ function setLocalFromProps(src) {
     fatherId: s.fatherId ?? null,
     motherId: s.motherId ?? null,
     catechesis: s.catechesis === true ? true : s.catechesis === false ? false : null,
+
+    // таинства (новая модель)
+    baptism: baptismFlag,
+    baptismYear: baptismFlag === true ? (s.baptismYear ?? null) : null,
+
+    chrismation: chrismationFlag,
+    chrismationYear: chrismationFlag === true ? (s.chrismationYear ?? null) : null,
+
+    firstCommunion: firstCommunionFlag,
+    firstCommunionYear: firstCommunionFlag === true ? (s.firstCommunionYear ?? null) : null,
   };
 }
 

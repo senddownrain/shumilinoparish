@@ -94,11 +94,21 @@
               <v-text-field
                 v-model="form.birthDate"
                 label="Дата рождения"
-                type="date"
+                
                 variant="outlined"
                 density="comfortable"
               />
             </v-col>
+
+            <v-col cols="12" md="4">
+        <v-text-field
+          v-model="form.phone"
+          label="Телефон"
+          prepend-inner-icon="mdi-phone"
+          variant="outlined"
+          density="comfortable"
+        />
+      </v-col>
 
             <v-col cols="12" sm="6">
               <v-select
@@ -177,45 +187,92 @@
 
           <v-divider class="my-4" />
 
-          <!-- 3) Таинства (быстро, компактно) -->
-          <div class="text-subtitle-1 mb-2">Таинства</div>
-          <v-row>
-            <v-col cols="12" sm="4">
-              <v-text-field
-                v-model.number="form.baptismYear"
-                label="Год крещения"
-                type="number"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-            <v-col cols="12" sm="4">
-              <v-text-field
-                v-model.number="form.chrismationYear"
-                label="Год миропомазания"
-                type="number"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-            <v-col cols="12" sm="4">
-              <v-text-field
-                v-model.number="form.firstCommunionYear"
-                label="Год первого причастия"
-                type="number"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
+          <!-- 3) Таинства -->
+<div class="text-subtitle-1 mb-2">Таинства</div>
 
-            <v-col cols="12">
-              <v-switch
-                v-model="form.catechesis"
-                label="Ходит на катехезы"
-                inset
-              />
-            </v-col>
-          </v-row>
+<v-row>
+  <!-- Крещение -->
+  <v-col cols="12" sm="4">
+    <div class="d-flex align-center justify-space-between">
+      <v-switch v-model="baptismBool" label="Крещён(а)" inset />
+      <v-btn size="x-small" variant="text" @click="form.baptism = null">
+        очистить
+      </v-btn>
+    </div>
+
+    <div class="text-caption text-medium-emphasis mb-2">
+      <span v-if="form.baptism === null">не указано</span>
+      <span v-else-if="form.baptism === true">да</span>
+      <span v-else>нет</span>
+    </div>
+
+    <v-text-field
+      v-if="form.baptism === true"
+      v-model.number="form.baptismYear"
+      label="Год (если известен)"
+      type="number"
+      variant="outlined"
+      density="comfortable"
+      clearable
+    />
+  </v-col>
+
+  <!-- Миропомазание -->
+  <v-col cols="12" sm="4">
+    <div class="d-flex align-center justify-space-between">
+      <v-switch v-model="chrismationBool" label="Миропомаз." inset />
+      <v-btn size="x-small" variant="text" @click="form.chrismation = null">
+        очистить
+      </v-btn>
+    </div>
+
+    <div class="text-caption text-medium-emphasis mb-2">
+      <span v-if="form.chrismation === null">не указано</span>
+      <span v-else-if="form.chrismation === true">да</span>
+      <span v-else>нет</span>
+    </div>
+
+    <v-text-field
+      v-if="form.chrismation === true"
+      v-model.number="form.chrismationYear"
+      label="Год (если известен)"
+      type="number"
+      variant="outlined"
+      density="comfortable"
+      clearable
+    />
+  </v-col>
+
+  <!-- Причастие -->
+  <v-col cols="12" sm="4">
+    <div class="d-flex align-center justify-space-between">
+      <v-switch v-model="firstCommunionBool" label="Причастие" inset />
+      <v-btn size="x-small" variant="text" @click="form.firstCommunion = null">
+        очистить
+      </v-btn>
+    </div>
+
+    <div class="text-caption text-medium-emphasis mb-2">
+      <span v-if="form.firstCommunion === null">не указано</span>
+      <span v-else-if="form.firstCommunion === true">да</span>
+      <span v-else>нет</span>
+    </div>
+
+    <v-text-field
+      v-if="form.firstCommunion === true"
+      v-model.number="form.firstCommunionYear"
+      label="Год (если известен)"
+      type="number"
+      variant="outlined"
+      density="comfortable"
+      clearable
+    />
+  </v-col>
+
+  <v-col cols="12">
+    <v-switch v-model="form.catechesis" label="Ходит на катехезы" inset />
+  </v-col>
+</v-row>
         </v-form>
       </v-card-text>
 
@@ -284,19 +341,78 @@ const religionOptions = [
 ];
 
 const required = (v) => !!v || 'Обязательное поле';
-
 const form = reactive({
-  lastName: '',
-  firstName: '',
-  middleName: '',
-  sex: '',
-  birthDate: '',
-  religion: '',
+  lastName: "",
+  firstName: "",
+  middleName: "",
+  sex: "",
+  birthDate: "",
+  religion: "",
+  phone: "",
+  baptism: null,              // true/false/null
   baptismYear: null,
+
+  chrismation: null,          // true/false/null
   chrismationYear: null,
+
+  firstCommunion: null,       // true/false/null
   firstCommunionYear: null,
+
   catechesis: null,
 });
+
+const baptismBool = computed({
+  get: () => form.baptism === true,
+  set: (v) => (form.baptism = v ? true : false),
+});
+const chrismationBool = computed({
+  get: () => form.chrismation === true,
+  set: (v) => (form.chrismation = v ? true : false),
+});
+const firstCommunionBool = computed({
+  get: () => form.firstCommunion === true,
+  set: (v) => (form.firstCommunion = v ? true : false),
+});
+
+// если флаг не true — год очищаем
+watch(
+  () => form.baptism,
+  (v) => {
+    if (v !== true) form.baptismYear = null;
+  }
+);
+watch(
+  () => form.chrismation,
+  (v) => {
+    if (v !== true) form.chrismationYear = null;
+  }
+);
+watch(
+  () => form.firstCommunion,
+  (v) => {
+    if (v !== true) form.firstCommunionYear = null;
+  }
+);
+
+// если ввели год — автоматически ставим "да"
+watch(
+  () => form.baptismYear,
+  (y) => {
+    if (y != null && form.baptism !== true) form.baptism = true;
+  }
+);
+watch(
+  () => form.chrismationYear,
+  (y) => {
+    if (y != null && form.chrismation !== true) form.chrismation = true;
+  }
+);
+watch(
+  () => form.firstCommunionYear,
+  (y) => {
+    if (y != null && form.firstCommunion !== true) form.firstCommunion = true;
+  }
+);
 
 const fullName = (p) =>
   p ? [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ') : '';
@@ -364,10 +480,17 @@ const resetForm = () => {
   form.sex = '';
   form.birthDate = '';
   form.religion = '';
-  form.baptismYear = null;
-  form.chrismationYear = null;
-  form.firstCommunionYear = null;
+ form.phone = '';
   form.catechesis = null;
+
+  form.baptism = null;
+form.baptismYear = null;
+
+form.chrismation = null;
+form.chrismationYear = null;
+
+form.firstCommunion = null;
+form.firstCommunionYear = null;
 };
 
 const cancel = () => {
@@ -418,10 +541,15 @@ const save = async () => {
     sex: form.sex,
     birthDate: form.birthDate || '',
     religion: form.religion,
+phone: form.phone,
+   baptism: form.baptism,
+baptismYear: form.baptismYear ?? null,
 
-    baptismYear: form.baptismYear || null,
-    chrismationYear: form.chrismationYear || null,
-    firstCommunionYear: form.firstCommunionYear || null,
+chrismation: form.chrismation,
+chrismationYear: form.chrismationYear ?? null,
+
+firstCommunion: form.firstCommunion,
+firstCommunionYear: form.firstCommunionYear ?? null,
     catechesis: form.catechesis,
 
     massAndConfession: '',

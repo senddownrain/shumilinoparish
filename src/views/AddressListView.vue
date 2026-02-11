@@ -14,12 +14,7 @@
               <span v-else>Загрузка…</span>
             </div>
           </div>
-
-          <v-btn
-            variant="text"
-            prepend-icon="mdi-filter-variant"
-            @click="filtersSheet = true"
-          >
+          <v-btn variant="text" prepend-icon="mdi-filter-variant" @click="filtersSheet = true">
             Фильтры
           </v-btn>
         </div>
@@ -37,15 +32,8 @@
       </v-col>
 
       <v-col cols="12">
-        <v-btn-toggle
-          v-model="mode"
-          mandatory
-          divided
-          density="comfortable"
-        >
-          <v-btn value="search" prepend-icon="mdi-text-search">
-            Поиск
-          </v-btn>
+        <v-btn-toggle v-model="mode" mandatory divided density="comfortable">
+          <v-btn value="search" prepend-icon="mdi-text-search">Поиск</v-btn>
           <v-btn value="todo" prepend-icon="mdi-calendar-alert">
             Нужно посетить ({{ currentYear }})
           </v-btn>
@@ -53,12 +41,7 @@
       </v-col>
     </v-row>
 
-    <v-alert
-      v-if="addressesStore.error"
-      type="error"
-      variant="outlined"
-      class="mb-3"
-    >
+    <v-alert v-if="addressesStore.error" type="error" variant="outlined" class="mb-3">
       {{ addressesStore.error }}
     </v-alert>
 
@@ -127,12 +110,13 @@
               @click.stop="toggleCurrentYear(addr)"
             />
 
-            <!-- Задним числом / управление годами -->
+            <!-- Удалить -->
             <v-btn
-              icon="mdi-calendar-edit"
+              icon="mdi-delete"
+              size="small"
+              color="red"
               variant="text"
-              :disabled="isBusy(addr.id)"
-              @click.stop="openVisitSheet(addr)"
+              @click.stop="confirmDelete(addr)"
             />
           </template>
         </v-list-item>
@@ -176,13 +160,52 @@
       </v-card>
     </v-bottom-sheet>
 
+    <!-- Диалог удаления адреса -->
+    <v-dialog v-model="deleteDialog" max-width="460">
+      <v-card>
+        <v-card-title class="text-h6">Удалить адрес?</v-card-title>
+        <v-card-text>
+          <div class="mb-2">
+            <strong>{{ addressToDeleteTitle }}</strong>
+          </div>
+
+          <v-alert
+            v-if="residentsCountAtDelete > 0"
+            type="warning"
+            variant="outlined"
+            class="mb-2"
+          >
+            По этому адресу есть жители: {{ residentsCountAtDelete }}.
+            Сначала перенесите/удалите людей, иначе останутся “сироты”.
+          </v-alert>
+
+          <div class="text-body-2 text-medium-emphasis">
+            Это действие нельзя будет отменить.
+          </div>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deleteDialog = false">Отмена</v-btn>
+          <v-btn
+            color="red"
+            variant="flat"
+            :loading="deleting"
+            :disabled="residentsCountAtDelete > 0"
+            @click="performDelete"
+          >
+            Удалить
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Bottom sheet: визиты (включая задним числом) -->
     <v-bottom-sheet v-model="visitSheet">
       <v-card v-if="visitAddress">
         <v-card-title class="text-h6">
           Визиты: {{ shortTitle(visitAddress) }}
         </v-card-title>
-
         <v-card-text>
           <div class="text-body-2 text-medium-emphasis mb-3">
             Нажимайте на год, чтобы поставить или убрать отметку.
@@ -214,6 +237,7 @@
                 placeholder="например, 2024"
               />
             </v-col>
+
             <v-col cols="5" class="d-flex align-center">
               <v-btn
                 color="primary"
@@ -227,12 +251,7 @@
             </v-col>
           </v-row>
 
-          <v-alert
-            v-if="visitAddress.phoneHome"
-            type="info"
-            variant="tonal"
-            class="mt-2"
-          >
+          <v-alert v-if="visitAddress.phoneHome" type="info" variant="tonal" class="mt-2">
             Телефон: <strong>{{ visitAddress.phoneHome }}</strong>
           </v-alert>
         </v-card-text>
@@ -248,12 +267,7 @@
     <v-snackbar v-model="snackbar.open" :timeout="3500">
       {{ snackbar.text }}
       <template #actions>
-        <v-btn
-          v-if="snackbar.undo"
-          variant="text"
-          color="primary"
-          @click="snackbar.undo()"
-        >
+        <v-btn v-if="snackbar.undo" variant="text" color="primary" @click="snackbar.undo()">
           Отменить
         </v-btn>
         <v-btn variant="text" @click="snackbar.open = false">OK</v-btn>
@@ -263,23 +277,26 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAddressesStore } from '../stores/addresses';
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+
+import { useAddressesStore } from "../stores/addresses";
+import { usePeopleStore } from "../stores/people";
 
 const router = useRouter();
 const addressesStore = useAddressesStore();
+const peopleStore = usePeopleStore();
 
 const currentYear = new Date().getFullYear();
 
-const search = ref('');
-const mode = ref('search'); // 'search' | 'todo'
+const search = ref("");
+const mode = ref("search"); // 'search' | 'todo'
 
 const filtersSheet = ref(false);
 const settlementFilter = ref(null);
 
 const visitSheet = ref(false);
-const visitAddressId = ref(null); // <-- ВАЖНО: храним id, а не объект
+const visitAddressId = ref(null); // храним id
 const customYear = ref(null);
 
 const busyByAddressId = ref(new Set());
@@ -287,30 +304,73 @@ const isBusy = (addressId) => busyByAddressId.value.has(addressId);
 
 const snackbar = ref({
   open: false,
-  text: '',
+  text: "",
   undo: null,
 });
 
+// DELETE state
+const deleteDialog = ref(false);
+const deleting = ref(false);
+const addressToDelete = ref(null);
+
+const addressToDeleteTitle = computed(() => {
+  const a = addressToDelete.value;
+  if (!a) return "";
+  const apt = a.apartment ? `-${a.apartment}` : "";
+  return `${a.localityName}, ${a.street} ${a.house}${apt}`;
+});
+
+const residentsCountAtDelete = computed(() => {
+  const a = addressToDelete.value;
+  if (!a) return 0;
+  return (peopleStore.people || []).filter((p) => p.addressId === a.id).length;
+});
+
+const confirmDelete = async (addr) => {
+  addressToDelete.value = addr;
+  deleteDialog.value = true;
+
+  // чтобы корректно посчитать жителей
+  if (!peopleStore.people.length && !peopleStore.loading) {
+    await peopleStore.fetchPeople();
+  }
+};
+
+const performDelete = async () => {
+  if (!addressToDelete.value) return;
+
+  deleting.value = true;
+  try {
+    await addressesStore.deleteAddress(addressToDelete.value.id);
+  } catch (e) {
+    console.error("Ошибка при удалении адреса:", e);
+  } finally {
+    deleting.value = false;
+    deleteDialog.value = false;
+    addressToDelete.value = null;
+  }
+};
+
 const normalize = (s) => {
-  return String(s || '')
+  return String(s || "")
     .toLowerCase()
-    .replaceAll('ё', 'е')
-    .replace(/[.,;:()]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replaceAll("ё", "е")
+    .replace(/[.,;:()]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 };
 
 const settlementOptions = computed(() => {
   const set = new Set();
-  addressesStore.addresses.forEach((a) => {
-    const name = (a.localityName || '').trim();
+  (addressesStore.addresses || []).forEach((a) => {
+    const name = (a.localityName || "").trim();
     if (name) set.add(name);
   });
-  return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "ru"));
 });
 
 const shortTitle = (a) => {
-  const apt = a.apartment ? `-${a.apartment}` : '';
+  const apt = a.apartment ? `-${a.apartment}` : "";
   return `${a.localityName}, ${a.street} ${a.house}${apt}`;
 };
 
@@ -322,11 +382,12 @@ const subtitleLine = (a) => {
   const years = Array.isArray(a.visitYears) ? a.visitYears : [];
   if (years.length) {
     const sorted = [...years].sort((x, y) => x - y);
-    parts.push(`визиты: ${sorted.join(', ')}`);
+    parts.push(`визиты: ${sorted.join(", ")}`);
   } else {
-    parts.push('визитов нет');
+    parts.push("визитов нет");
   }
-  return parts.join(' · ');
+
+  return parts.join(" · ");
 };
 
 const hasVisitedYear = (a, year) => {
@@ -338,53 +399,44 @@ const filteredAddresses = computed(() => {
   const term = normalize(search.value);
   const settlement = normalize(settlementFilter.value);
 
-  let list = addressesStore.addresses;
+  let list = addressesStore.addresses || [];
 
-  // фильтр по населённому пункту
   if (settlement) {
     list = list.filter((a) => normalize(a.localityName) === settlement);
   }
 
-  // режим "нужно посетить"
-  if (mode.value === 'todo') {
+  if (mode.value === "todo") {
     list = list.filter((a) => !hasVisitedYear(a, currentYear));
   }
 
-  // поиск
   if (term) {
     list = list.filter((a) => {
       const hay = normalize(
-        [
-          a.localityName,
-          a.street,
-          a.house,
-          a.apartment,
-          a.phoneHome,
-        ].filter(Boolean).join(' ')
+        [a.localityName, a.street, a.house, a.apartment, a.phoneHome]
+          .filter(Boolean)
+          .join(" ")
       );
       return hay.includes(term);
     });
   }
 
-  // сортировка
   return [...list].sort((a, b) => {
     const aa = normalize(`${a.localityName} ${a.street} ${a.house} ${a.apartment}`);
     const bb = normalize(`${b.localityName} ${b.street} ${b.house} ${b.apartment}`);
-    return aa.localeCompare(bb, 'ru');
+    return aa.localeCompare(bb, "ru");
   });
 });
 
-// выбранный адрес берём из стора => подсветка годов обновляется сразу
 const visitAddress = computed(() => {
   const id = visitAddressId.value;
   if (!id) return null;
-  return addressesStore.addresses.find((a) => a.id === id) || null;
+  return (addressesStore.addresses || []).find((a) => a.id === id) || null;
 });
 
-// годы-чипы
 const yearChips = computed(() => {
   const a = visitAddress.value;
   const yearsExisting = Array.isArray(a?.visitYears) ? a.visitYears : [];
+
   const base = [];
   for (let y = currentYear; y >= currentYear - 10; y--) base.push(y);
 
@@ -404,17 +456,11 @@ const isValidCustomYear = computed(() => {
   return true;
 });
 
-const goToDetail = (id) => router.push({ name: 'AddressDetail', params: { id } });
-const goToCreate = () => router.push({ name: 'AddressCreate' });
+const goToDetail = (id) => router.push({ name: "AddressDetail", params: { id } });
+const goToCreate = () => router.push({ name: "AddressCreate" });
 
 const resetFilters = () => {
   settlementFilter.value = null;
-};
-
-const openVisitSheet = (addr) => {
-  visitAddressId.value = addr.id;
-  customYear.value = null;
-  visitSheet.value = true;
 };
 
 const closeVisitSheet = () => {

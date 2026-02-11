@@ -144,6 +144,8 @@
           </v-row>
         </div>
       </v-card-text>
+
+  
     </v-card>
 
     <!-- 3) Дети -->

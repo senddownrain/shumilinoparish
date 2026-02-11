@@ -64,7 +64,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDisplay } from 'vuetify';
 import { useAppUiStore } from './stores/appUi';
@@ -86,7 +86,7 @@ const appBarTitle = computed(() => {
   if (appUi.title) return appUi.title;
 
   // иначе дефолт по разделу
-  return section.value === 'people' ? 'Люди' : 'Адреса';
+  return section.value === 'people' ? 'Люди' : 'Картотека';
 });
 
 
@@ -114,6 +114,14 @@ const onActionClick = (a) => {
   if (typeof a.onClick === 'function') return a.onClick();
   if (a.to) return router.push(a.to);
 };
+
+watch(
+  () => route.fullPath,
+  () => {
+    appUi.clear();
+  },
+  { immediate: true }
+);
 </script>
 
 <style>

@@ -1,38 +1,48 @@
 // src/stores/appUi.js
-import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { defineStore } from "pinia";
+import { ref } from "vue";
 
-export const useAppUiStore = defineStore('appUi', () => {
-  const title = ref('');
+export const useAppUiStore = defineStore("appUi", () => {
+  const title = ref("");
   const showBack = ref(false);
-
-  // Куда вести "Назад" (у тебя: всегда список адресов)
-  const backTo = ref({ name: 'AddressList' });
-
-  // Action-кнопки справа в app-bar
-  // Формат: { icon, label?, to?, disabled? }
+  const backTo = ref(null);
   const actions = ref([]);
 
-  const set = (payload = {}) => {
-    if ('title' in payload) title.value = payload.title || '';
-    if ('showBack' in payload) showBack.value = !!payload.showBack;
-    if ('backTo' in payload && payload.backTo) backTo.value = payload.backTo;
-    if ('actions' in payload) actions.value = Array.isArray(payload.actions) ? payload.actions : [];
-  };
+  // счётчик изменений: каждый set его увеличивает
+  const rev = ref(0);
 
-  const reset = () => {
-    title.value = '';
+  function set(payload) {
+    rev.value++;
+
+    title.value = payload?.title || "";
+    showBack.value = !!payload?.showBack;
+    backTo.value = payload?.backTo || null;
+    actions.value = Array.isArray(payload?.actions) ? payload.actions : [];
+  }
+
+  function reset() {
+    // запоминаем “ревизию” на момент вызова reset
+    // const myRev = rev.value;
+
+    // // сбрасываем НЕ сразу, а в microtask и только если после reset никто не делал set()
+    // queueMicrotask(() => {
+    //   if (rev.value !== myRev) return; // уже пришла новая страница и сделала set()
+
+    //   title.value = "";
+    //   showBack.value = false;
+    //   backTo.value = null;
+    //   actions.value = [];
+
+    //   rev.value++; // фиксируем изменение
+    // });
+  }
+
+  function clear() {
+    title.value = "";
     showBack.value = false;
-    backTo.value = { name: 'AddressList' };
+    backTo.value = null;
     actions.value = [];
-  };
+  }
 
-  return {
-    title,
-    showBack,
-    backTo,
-    actions,
-    set,
-    reset,
-  };
+   return { title, showBack, backTo, actions, set, reset, clear };
 });

@@ -39,21 +39,34 @@
       <!-- Таинства: показываем ТОЛЬКО причастие и миропомазание -->
       <!-- ВАЖНО: крещение НЕ показываем вообще (как вы просили) -->
       <div class="d-flex flex-wrap ga-1 mt-2">
-        <v-chip v-if="child.firstCommunionYear" size="x-small" variant="tonal">
-          причастие: {{ child.firstCommunionYear }}
-        </v-chip>
+  <v-chip
+    v-if="child.firstCommunion === true || child.firstCommunionYear"
+    size="x-small"
+    variant="tonal"
+  >
+    причастие:
+    {{ child.firstCommunionYear ? child.firstCommunionYear : "есть" }}
+  </v-chip>
 
-        <v-chip v-if="child.chrismationYear" size="x-small" variant="tonal">
-          миропомаз.: {{ child.chrismationYear }}
-        </v-chip>
+  <v-chip
+    v-if="child.chrismation === true || child.chrismationYear"
+    size="x-small"
+    variant="tonal"
+  >
+    миропомаз.:
+    {{ child.chrismationYear ? child.chrismationYear : "есть" }}
+  </v-chip>
 
-        <span
-          v-if="!child.firstCommunionYear && !child.chrismationYear"
-          class="text-caption text-medium-emphasis"
-        >
-          таинства не отмечены
-        </span>
-      </div>
+  <span
+    v-if="
+      !(child.firstCommunion === true || child.firstCommunionYear) &&
+      !(child.chrismation === true || child.chrismationYear)
+    "
+    class="text-caption text-medium-emphasis"
+  >
+    таинства не отмечены
+  </span>
+</div>
     </v-card-text>
   </v-card>
 </template>
