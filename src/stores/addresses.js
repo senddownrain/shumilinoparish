@@ -1,3 +1,4 @@
+// src/stores/addresses.js
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import {
@@ -7,12 +8,11 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// ВАЖНО: имя коллекции должно совпадать с тем,
-// что вы создали в Firestore. Если у вас "addresses",
-// замените строку ниже.
 const COLLECTION_NAME = 'addresses';
 
 export const useAddressesStore = defineStore('addresses', () => {
@@ -20,20 +20,19 @@ export const useAddressesStore = defineStore('addresses', () => {
   const loading = ref(false);
   const error = ref(null);
 
-  // ---------- Загрузка всей коллекции адресов ----------
-
   const fetchAddresses = async () => {
     loading.value = true;
     error.value = null;
-
     try {
       const colRef = collection(db, COLLECTION_NAME);
       const snapshot = await getDocs(colRef);
       const items = [];
       snapshot.forEach((docSnap) => {
+        const data = docSnap.data() || {};
         items.push({
           id: docSnap.id,
-          ...docSnap.data(),
+          ...data,
+          visitYears: Array.isArray(data.visitYears) ? data.visitYears : [],
         });
       });
       addresses.value = items;
@@ -45,21 +44,19 @@ export const useAddressesStore = defineStore('addresses', () => {
     }
   };
 
-  // ---------- Получение адреса по id ----------
-
   const getAddressById = (id) =>
     computed(() => addresses.value.find((a) => a.id === id) || null);
 
-  // ---------- Добавление нового адреса ----------
-
   const addAddress = async (address) => {
-    // address — объект без id. Пример:
-    // { localityType, localityName, street, house, apartment, phoneHome, visitYears }
     try {
       const colRef = collection(db, COLLECTION_NAME);
-      const docRef = await addDoc(colRef, address);
-      addresses.value.push({
+      const payload = {
         ...address,
+        visitYears: Array.isArray(address.visitYears) ? address.visitYears : [],
+      };
+      const docRef = await addDoc(colRef, payload);
+      addresses.value.push({
+        ...payload,
         id: docRef.id,
       });
       return docRef.id;
@@ -69,18 +66,19 @@ export const useAddressesStore = defineStore('addresses', () => {
     }
   };
 
-  // ---------- Обновление адреса ----------
-
   const updateAddress = async (id, payload) => {
     try {
+      // НЕ пишем id в документ
+      const { id: _id, ...clean } = payload || {};
       const docRef = doc(db, COLLECTION_NAME, id);
-      await updateDoc(docRef, payload);
+
+      await updateDoc(docRef, clean);
 
       const index = addresses.value.findIndex((a) => a.id === id);
       if (index !== -1) {
         addresses.value[index] = {
           ...addresses.value[index],
-          ...payload,
+          ...clean,
         };
       }
     } catch (e) {
@@ -88,8 +86,6 @@ export const useAddressesStore = defineStore('addresses', () => {
       throw e;
     }
   };
-
-  // ---------- Удаление адреса ----------
 
   const deleteAddress = async (id) => {
     try {
@@ -102,6 +98,55 @@ export const useAddressesStore = defineStore('addresses', () => {
     }
   };
 
+  // ===== Визиты (атомарно) =====
+  const markVisitedYear = async (addressId, year) => {
+    if (!addressId || !year) return;
+
+    const y = Number(year);
+    if (!Number.isFinite(y)) return;
+
+    const docRef = doc(db, COLLECTION_NAME, addressId);
+    await updateDoc(docRef, { visitYears: arrayUnion(y) });
+
+    // локально
+    const idx = addresses.value.findIndex((a) => a.id === addressId);
+    if (idx !== -1) {
+      const current = Array.isArray(addresses.value[idx].visitYears)
+        ? addresses.value[idx].visitYears
+        : [];
+      const set = new Set(current);
+      set.add(y);
+      addresses.value[idx] = {
+        ...addresses.value[idx],
+        visitYears: Array.from(set).sort((a, b) => a - b),
+      };
+    }
+  };
+
+  const unmarkVisitedYear = async (addressId, year) => {
+    if (!addressId || !year) return;
+
+    const y = Number(year);
+    if (!Number.isFinite(y)) return;
+
+    const docRef = doc(db, COLLECTION_NAME, addressId);
+    await updateDoc(docRef, { visitYears: arrayRemove(y) });
+
+    // локально
+    const idx = addresses.value.findIndex((a) => a.id === addressId);
+    if (idx !== -1) {
+      const current = Array.isArray(addresses.value[idx].visitYears)
+        ? addresses.value[idx].visitYears
+        : [];
+      const set = new Set(current);
+      set.delete(y);
+      addresses.value[idx] = {
+        ...addresses.value[idx],
+        visitYears: Array.from(set).sort((a, b) => a - b),
+      };
+    }
+  };
+
   return {
     addresses,
     loading,
@@ -111,5 +156,7 @@ export const useAddressesStore = defineStore('addresses', () => {
     addAddress,
     updateAddress,
     deleteAddress,
+    markVisitedYear,
+    unmarkVisitedYear,
   };
 });

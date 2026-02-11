@@ -1,33 +1,45 @@
 <template>
-  <v-dialog v-model="model" max-width="520">
+  <v-dialog
+    v-model="model"
+    :fullscreen="smAndDown"
+    :max-width="smAndDown ? undefined : 560"
+    scrollable
+  >
     <v-card>
-      <v-card-title class="text-h6">
-        Новый брак
-      </v-card-title>
-      <v-card-text>
-        <v-alert
-          v-if="error"
-          type="error"
-          variant="outlined"
-          class="mb-3"
+      <v-toolbar color="primary" density="comfortable">
+        <v-btn icon="mdi-close" variant="text" @click="cancel" />
+        <v-toolbar-title>Новый брак</v-toolbar-title>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :loading="saving"
+          :disabled="saving"
+          @click="save"
         >
+          Сохранить
+        </v-btn>
+      </v-toolbar>
+
+      <v-card-text class="pt-4">
+        <v-alert v-if="error" type="error" variant="outlined" class="mb-3">
           {{ error }}
         </v-alert>
 
+        <v-sheet class="pa-3 mb-4" rounded="lg" border>
+          <div class="text-body-2">
+            <strong>Текущая персона:</strong>
+            {{ personFullName }}
+            <span class="text-medium-emphasis">
+              ({{ props.person.sex === 'male' ? 'мужчина' : 'женщина' }})
+            </span>
+          </div>
+          <div class="text-body-2 text-medium-emphasis mt-1">
+            Новый брак создаётся со статусом <strong>активный</strong>.
+          </div>
+        </v-sheet>
+
         <v-form ref="formRef" v-model="isValid">
           <v-row>
-            <!-- Показываем, кто текущий человек (муж или жена) -->
-            <v-col cols="12">
-              <div class="mb-2">
-                <strong>Текущая персона:</strong>
-                <span>{{ personFullName }}</span>
-                <span class="text-medium-emphasis">
-                  ({{ person.sex === 'male' ? 'мужчина' : 'женщина' }})
-                </span>
-              </div>
-            </v-col>
-
-            <!-- Выбор супруга из подходящих людей -->
             <v-col cols="12">
               <v-combobox
                 v-model="spouseModel"
@@ -47,7 +59,7 @@
               />
             </v-col>
 
-            <v-col cols="12" md="6">
+            <v-col cols="12" sm="6">
               <v-text-field
                 v-model.number="civilYear"
                 label="Год гражданского брака"
@@ -56,7 +68,8 @@
                 density="comfortable"
               />
             </v-col>
-            <v-col cols="12" md="6">
+
+            <v-col cols="12" sm="6">
               <v-text-field
                 v-model.number="churchYear"
                 label="Год венчания"
@@ -76,11 +89,10 @@
           </v-row>
         </v-form>
       </v-card-text>
-      <v-card-actions>
+
+      <v-card-actions v-if="!smAndDown">
         <v-spacer />
-        <v-btn variant="text" @click="cancel">
-          Отмена
-        </v-btn>
+        <v-btn variant="text" @click="cancel">Отмена</v-btn>
         <v-btn
           color="primary"
           variant="flat"
@@ -88,7 +100,7 @@
           :disabled="saving"
           @click="save"
         >
-          Создать
+          Сохранить
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -96,19 +108,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useDisplay } from 'vuetify';
 import { usePeopleStore } from '../stores/people';
 import { useMarriagesStore } from '../stores/marriages';
 
+const { smAndDown } = useDisplay();
+
 const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
-  },
-  person: {
-    type: Object,
-    required: true,
-  },
+  modelValue: { type: Boolean, default: false },
+  person: { type: Object, required: true },
 });
 
 const emit = defineEmits(['update:modelValue', 'created']);
@@ -139,7 +148,7 @@ const personFullName = computed(() =>
     .join(' ')
 );
 
-// активные браки всех людей
+// active браки по personId
 const activeMarriageByPersonId = computed(() => {
   const map = new Map();
   marriagesStore.marriages.forEach((m) => {
@@ -150,7 +159,8 @@ const activeMarriageByPersonId = computed(() => {
   });
   return map;
 });
-// все браки между парами людей (для запрета повторного брака с тем же человеком)
+
+// все браки по паре (чтобы не повторяться)
 const marriagesByPairKey = computed(() => {
   const map = new Map();
   marriagesStore.marriages.forEach((m) => {
@@ -165,34 +175,25 @@ const spouseOptions = computed(() => {
   if (!current) return [];
 
   const wantSex = current.sex === 'male' ? 'female' : 'male';
-
-  // множество id детей текущего человека
-  const myChildrenIds = new Set(
-    Array.isArray(current.childrenIds) ? current.childrenIds : []
-  );
+  const myChildrenIds = new Set(Array.isArray(current.childrenIds) ? current.childrenIds : []);
 
   return peopleStore.people
     .filter((p) => {
       if (p.id === current.id) return false;
       if (p.sex !== wantSex) return false;
       if (p.isDeceased) return false;
-      // не должен иметь активный брак
+
+      // у кандидата не должно быть активного брака
       if (activeMarriageByPersonId.value.has(p.id)) return false;
 
-      // нельзя жениться на собственном ребёнке
+      // нельзя с ребёнком
       if (myChildrenIds.has(p.id)) return false;
 
-      // нельзя жениться на собственном родителе
-      if (
-        current.fatherId &&
-        p.id === current.fatherId
-      ) return false;
-      if (
-        current.motherId &&
-        p.id === current.motherId
-      ) return false;
+      // нельзя с родителем
+      if (current.fatherId && p.id === current.fatherId) return false;
+      if (current.motherId && p.id === current.motherId) return false;
 
-      // нельзя повторно жениться на том же человеке (любой брак в истории)
+      // нельзя повторно с тем же человеком
       const pairKey = [current.id, p.id].sort().join('-');
       if (marriagesByPairKey.value.has(pairKey)) return false;
 
@@ -211,17 +212,21 @@ const spouseOptions = computed(() => {
     }));
 });
 
+// при открытии — сброс
+watch(
+  () => model.value,
+  (open) => {
+    if (!open) return;
+    spouseModel.value = null;
+    civilYear.value = null;
+    churchYear.value = null;
+    isChurchMarried.value = false;
+    error.value = '';
+  }
+);
+
 const cancel = () => {
   model.value = false;
-  resetForm();
-};
-
-const resetForm = () => {
-  spouseModel.value = null;
-  civilYear.value = null;
-  churchYear.value = null;
-  isChurchMarried.value = false;
-  error.value = '';
 };
 
 const save = async () => {
@@ -232,7 +237,7 @@ const save = async () => {
   const valid = res.valid ?? res;
   if (!valid) return;
 
-  // доп. проверка: сам человек не должен иметь активный брак
+  // сам человек не должен иметь активный брак
   if (activeMarriageByPersonId.value.has(props.person.id)) {
     error.value = 'У данного человека уже есть активный брак.';
     return;
@@ -244,24 +249,27 @@ const save = async () => {
   }
 
   const spouseId = spouseModel.value.value;
-
-  // безопасность: ещё раз проверим кандидата
   const spouse = peopleStore.people.find((p) => p.id === spouseId);
   if (!spouse) {
     error.value = 'Выбранный супруг не найден.';
     return;
   }
- const pairKey = [props.person.id, spouse.id].sort().join('-');
-if (marriagesByPairKey.value.has(pairKey)) {
-  error.value = 'Между этими людьми уже был брак. Повторный брак недопустим.';
-  return;
-}
 
+  // повторная защита пары
+  const pairKey = [props.person.id, spouse.id].sort().join('-');
+  if (marriagesByPairKey.value.has(pairKey)) {
+    error.value = 'Между этими людьми уже был брак. Повторный брак недопустим.';
+    return;
+  }
+
+  // пол
   const wantSex = props.person.sex === 'male' ? 'female' : 'male';
   if (spouse.sex !== wantSex) {
     error.value = 'Пол выбранного супруга не соответствует.';
     return;
   }
+
+  // у супруга не должно быть активного брака
   if (activeMarriageByPersonId.value.has(spouse.id)) {
     error.value = 'У выбранного супруга уже есть активный брак.';
     return;
@@ -269,10 +277,8 @@ if (marriagesByPairKey.value.has(pairKey)) {
 
   saving.value = true;
   try {
-    const husbandId =
-      props.person.sex === 'male' ? props.person.id : spouse.id;
-    const wifeId =
-      props.person.sex === 'female' ? props.person.id : spouse.id;
+    const husbandId = props.person.sex === 'male' ? props.person.id : spouse.id;
+    const wifeId = props.person.sex === 'female' ? props.person.id : spouse.id;
 
     const marriageId = await marriagesStore.createMarriage({
       husbandId,
@@ -283,19 +289,14 @@ if (marriagesByPairKey.value.has(pairKey)) {
     });
 
     // обновляем marriageIds у обоих людей
-    const { updatePerson } = usePeopleStore(); // уже использованный store, можно взять метод напрямую
-    // но лучше не переинициализировать store, возьмём существующий:
-    const people = peopleStore;
-
     const updateIdsFor = async (personId) => {
-      const p = people.people.find((x) => x.id === personId);
+      const p = peopleStore.people.find((x) => x.id === personId);
       if (!p) return;
+
       const ids = Array.isArray(p.marriageIds) ? [...p.marriageIds] : [];
-      if (!ids.includes(marriageId)) {
-        ids.push(marriageId);
-      }
-      // используем updatePerson из store
-      await people.updatePerson(personId, { marriageIds: ids });
+      if (!ids.includes(marriageId)) ids.push(marriageId);
+
+      await peopleStore.updatePerson(personId, { marriageIds: ids });
     };
 
     await updateIdsFor(husbandId);
@@ -303,7 +304,6 @@ if (marriagesByPairKey.value.has(pairKey)) {
 
     emit('created', marriageId);
     model.value = false;
-    resetForm();
   } catch (e) {
     console.error('Ошибка при создании брака:', e);
     error.value = 'Не удалось создать брак. Попробуйте ещё раз.';

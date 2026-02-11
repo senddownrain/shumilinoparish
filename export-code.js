@@ -13,8 +13,10 @@ const pathsToExport = [
   'vite.config.js',
   'firebase.json',
   'index.html',
-  'seed-db.js',
-  'vite.config.mjs',
+  'seed.js',
+  'firebase.json',
+  'firebase-node.js',
+  'vite.config.js',
   'public',
   'src' // Экспортируем всю папку src
 ];

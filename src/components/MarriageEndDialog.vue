@@ -1,25 +1,38 @@
 <template>
-  <v-dialog v-model="model" max-width="480">
+  <v-dialog
+    v-model="model"
+    :fullscreen="smAndDown"
+    :max-width="smAndDown ? undefined : 520"
+    scrollable
+  >
     <v-card>
-      <v-card-title class="text-h6">
-        {{ title }}
-      </v-card-title>
-      <v-card-text>
-        <v-alert
-          v-if="error"
-          type="error"
-          variant="outlined"
-          class="mb-3"
+      <v-toolbar :color="props.mode === 'divorce' ? 'red-darken-1' : 'orange-darken-2'" density="comfortable">
+        <v-btn icon="mdi-close" variant="text" @click="cancel" />
+        <v-toolbar-title>{{ title }}</v-toolbar-title>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :loading="saving"
+          :disabled="saving"
+          @click="confirm"
         >
+          Подтвердить
+        </v-btn>
+      </v-toolbar>
+
+      <v-card-text class="pt-4">
+        <v-alert v-if="error" type="error" variant="outlined" class="mb-3">
           {{ error }}
         </v-alert>
 
-        <p class="mb-3">
-          Вы действительно хотите изменить статус брака между
-          <strong>{{ fullName(husband) }}</strong> и
-          <strong>{{ fullName(wife) }}</strong>
-          на <strong>{{ actionLabel }}</strong>?
-        </p>
+        <v-sheet class="pa-3 mb-4" rounded="lg" border>
+          <div class="text-body-2">
+            Изменить статус брака между
+            <strong>{{ fullName(husband) }}</strong> и
+            <strong>{{ fullName(wife) }}</strong>
+            на <strong>{{ actionLabel }}</strong>.
+          </div>
+        </v-sheet>
 
         <v-form ref="formRef" v-model="isValid">
           <v-row>
@@ -36,20 +49,25 @@
           </v-row>
         </v-form>
 
-        <p v-if="props.mode === 'widow'" class="text-body-2 text-medium-emphasis mt-2">
-          При отметке вдовства у супруга(и) будет установлен статус "умер(ла)" и год смерти,
+        <v-alert
+          v-if="props.mode === 'widow'"
+          type="warning"
+          variant="tonal"
+          class="mt-2"
+        >
+          При отметке вдовства у супругов будет установлен статус “умер(ла)” и год смерти,
           если они ещё не указаны.
-        </p>
+        </v-alert>
       </v-card-text>
-      <v-card-actions>
+
+      <v-card-actions v-if="!smAndDown">
         <v-spacer />
-        <v-btn variant="text" @click="cancel">
-          Отмена
-        </v-btn>
+        <v-btn variant="text" @click="cancel">Отмена</v-btn>
         <v-btn
-          color="red"
+          :color="props.mode === 'divorce' ? 'red' : 'orange'"
           variant="flat"
           :loading="saving"
+          :disabled="saving"
           @click="confirm"
         >
           Подтвердить
@@ -60,23 +78,17 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useDisplay } from 'vuetify';
 import { usePeopleStore } from '../stores/people';
 import { useMarriagesStore } from '../stores/marriages';
 
+const { smAndDown } = useDisplay();
+
 const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
-  },
-  marriage: {
-    type: Object,
-    required: true,
-  },
-  mode: {
-    type: String,
-    default: 'divorce', // 'divorce' | 'widow'
-  },
+  modelValue: { type: Boolean, default: false },
+  marriage: { type: Object, required: true },
+  mode: { type: String, default: 'divorce' }, // 'divorce' | 'widow'
 });
 
 const emit = defineEmits(['update:modelValue', 'updated']);
@@ -104,20 +116,22 @@ const wife = computed(() =>
   peopleStore.people.find((p) => p.id === props.marriage.wifeId) || null
 );
 
-const title = computed(() =>
-  props.mode === 'divorce' ? 'Развод' : 'Отметить вдовство'
-);
-
-const actionLabel = computed(() =>
-  props.mode === 'divorce' ? 'разведены' : 'вдовец / вдова'
-);
-
+const title = computed(() => (props.mode === 'divorce' ? 'Развод' : 'Отметить вдовство'));
+const actionLabel = computed(() => (props.mode === 'divorce' ? 'разведены' : 'вдовство'));
 const yearLabel = computed(() =>
   props.mode === 'divorce' ? 'Год развода' : 'Год смерти супруга(и)'
 );
 
-const fullName = (p) =>
-  p ? [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ') : '';
+const fullName = (p) => (p ? [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ') : '—');
+
+watch(
+  () => model.value,
+  (open) => {
+    if (!open) return;
+    year.value = null;
+    error.value = '';
+  }
+);
 
 const cancel = () => {
   model.value = false;
@@ -141,28 +155,22 @@ const confirm = async () => {
 
   saving.value = true;
   try {
+    const y = year.value || null;
+
     if (props.mode === 'divorce') {
-      // только статус брака
       await marriagesStore.updateMarriageStatus(props.marriage.id, {
         status: 'divorced',
-        divorceYear: year.value || null,
+        divorceYear: y,
       });
     } else {
-      // вдовство: статус брака + отметка смерти супруга(и)
       await marriagesStore.updateMarriageStatus(props.marriage.id, {
         status: 'widowed',
-        divorceYear: year.value || null,
+        divorceYear: y, // у тебя поле так называется; оставляем совместимость
       });
-
-      // определяем, кто сейчас "вдовеет" — текущий человек узнаётся в родительском компоненте,
-      // но здесь мы просто помечаем обоих супругов, если у кого-то ещё нет даты смерти.
-      const y = year.value || null;
 
       const updateDeath = async (person) => {
         if (!person) return;
-        // если уже есть год смерти, не трогаем
         if (person.isDeceased && person.deathYear) return;
-
         await peopleStore.updatePerson(person.id, {
           isDeceased: true,
           deathYear: y,

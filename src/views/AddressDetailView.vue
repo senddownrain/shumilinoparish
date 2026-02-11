@@ -1,485 +1,498 @@
+<!-- src/views/AddressDetailView.vue -->
 <template>
   <div v-if="address">
-    <!-- Навигация и кнопка редактирования -->
-    <v-row class="mb-4" align="center">
-      <v-col cols="12" md="6">
-        <v-btn
-          variant="text"
-          prepend-icon="mdi-arrow-left"
-          @click="goBack"
-        >
-          Назад к списку
-        </v-btn>
-      </v-col>
-      <v-col cols="12" md="6" class="text-md-right text-start">
-        <v-btn
-          color="primary"
-          prepend-icon="mdi-pencil"
-          @click="goToEdit"
-        >
-          Редактировать адрес
-        </v-btn>
-      </v-col>
-    </v-row>
-
-    <!-- 1. Карточка адреса -->
-    <address-card :address="address" class="mb-4" />
-
-    <!-- 2. Муж и жена + информация о браке -->
-    <v-card class="mb-4">
-      <v-card-title>
-        Супруги по этому адресу
+    <!-- 1) Адрес и телефон + кнопки -->
+    <v-card class="mb-4" rounded="lg" border>
+      <v-card-title class="text-h6">
+        {{ addressTitle }}
       </v-card-title>
+
+      <v-card-subtitle>
+        <span class="text-medium-emphasis">
+          {{ address.localityType }} ·
+          <span v-if="address.phoneHome">тел: {{ address.phoneHome }}</span>
+          <span v-else>телефон не указан</span>
+        </span>
+      </v-card-subtitle>
+
+      <v-card-text>
+        <v-row class="ga-2" align="center">
+          <v-col cols="12" sm="6">
+            <v-btn
+              block
+              color="primary"
+              variant="flat"
+              :loading="isBusy(address.id)"
+              :disabled="isBusy(address.id)"
+              @click="toggleCurrentYear(address)"
+            >
+              <v-icon start>
+                {{ visitedThisYear ? "mdi-check-circle" : "mdi-check-circle-outline" }}
+              </v-icon>
+              {{ visitedThisYear ? `Посещено (${currentYear})` : `Отметить визит (${currentYear})` }}
+            </v-btn>
+          </v-col>
+
+          <v-col cols="6" sm="3">
+            <v-btn
+              block
+              variant="tonal"
+              prepend-icon="mdi-calendar-edit"
+              :disabled="isBusy(address.id)"
+              @click="openVisitSheet()"
+            >
+              Годы
+            </v-btn>
+          </v-col>
+
+          <v-col cols="6" sm="3">
+            <v-btn
+              block
+              variant="tonal"
+              prepend-icon="mdi-phone"
+              :disabled="!address.phoneHome"
+              @click="callHome"
+            >
+              Позвонить
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
+
+    <!-- 2) Супруги либо Жители -->
+    <v-card class="mb-4" rounded="lg" border>
+      <v-card-title class="text-subtitle-1">
+        {{ mainCouple ? "Супруги" : `Жители (${residentsSorted.length})` }}
+      </v-card-title>
+
       <v-card-text>
         <div v-if="mainCouple">
           <v-row>
-            <!-- Муж -->
-            <v-col cols="12" md="6" v-if="mainHusband">
-              <h3 class="text-subtitle-1 mb-2">
-                Муж
-              </h3>
-              <div class="mb-1">
-                <strong>ФИО:</strong>
-                <v-btn
-                  variant="text"
-                  class="px-0"
-                  @click="goToPerson(mainHusband.id)"
-                >
-                  {{ fullName(mainHusband) }}
-                </v-btn>
-              </div>
-              <div class="mb-1">
-                <strong>Дата рождения:</strong>
-                <span v-if="mainHusband.birthDate">{{ mainHusband.birthDate }}</span>
-                <span v-else class="text-disabled">не указана</span>
-              </div>
-              <div class="mb-1">
-                <strong>Профессия:</strong>
-                <span v-if="mainHusband.profession">{{ mainHusband.profession }}</span>
-                <span v-else class="text-disabled">не указана</span>
-              </div>
-              <div class="mb-1">
-                <strong>Место работы:</strong>
-                <span v-if="mainHusband.workplace">{{ mainHusband.workplace }}</span>
-                <span v-else class="text-disabled">не указано</span>
-              </div>
-              <div class="mb-1">
-                <strong>Вероисповедание:</strong>
-                <span v-if="mainHusband.religion">{{ mainHusband.religion }}</span>
-                <span v-else class="text-disabled">не указано</span>
-              </div>
-              <div class="mb-1">
-                <strong>Исповедь и месса:</strong>
-                <span v-if="mainHusband.massAndConfession">{{ mainHusband.massAndConfession }}</span>
-                <span v-else class="text-disabled">нет данных</span>
-              </div>
+            <v-col cols="12" md="6">
+              <PersonInfoCard
+                v-if="mainHusband"
+                :person="mainHusband"
+                role-label="Муж"
+                @open="goToPerson"
+              />
             </v-col>
 
-            <!-- Жена -->
-            <v-col cols="12" md="6" v-if="mainWife">
-              <h3 class="text-subtitle-1 mb-2">
-                Жена
-              </h3>
-              <div class="mb-1">
-                <strong>ФИО:</strong>
-                <v-btn
-                  variant="text"
-                  class="px-0"
-                  @click="goToPerson(mainWife.id)"
-                >
-                  {{ fullName(mainWife) }}
-                </v-btn>
-              </div>
-              <div class="mb-1">
-                <strong>Дата рождения:</strong>
-                <span v-if="mainWife.birthDate">{{ mainWife.birthDate }}</span>
-                <span v-else class="text-disabled">не указана</span>
-              </div>
-              <div class="mb-1">
-                <strong>Профессия:</strong>
-                <span v-if="mainWife.profession">{{ mainWife.profession }}</span>
-                <span v-else class="text-disabled">не указана</span>
-              </div>
-              <div class="mb-1">
-                <strong>Место работы:</strong>
-                <span v-if="mainWife.workplace">{{ mainWife.workplace }}</span>
-                <span v-else class="text-disabled">не указано</span>
-              </div>
-              <div class="mb-1">
-                <strong>Вероисповедание:</strong>
-                <span v-if="mainWife.religion">{{ mainWife.religion }}</span>
-                <span v-else class="text-disabled">не указано</span>
-              </div>
-              <div class="mb-1">
-                <strong>Исповедь и месса:</strong>
-                <span v-if="mainWife.massAndConfession">{{ mainWife.massAndConfession }}</span>
-                <span v-else class="text-disabled">нет данных</span>
-              </div>
+            <v-col cols="12" md="6">
+              <PersonInfoCard
+                v-if="mainWife"
+                :person="mainWife"
+                role-label="Жена"
+                @open="goToPerson"
+              />
             </v-col>
           </v-row>
 
-          <!-- Информация о браке супругов -->
           <v-divider class="my-3" />
-          <h3 class="text-subtitle-1 mb-2">
-            Брак
-          </h3>
-          <div v-if="mainMarriage">
-            <div class="mb-1">
-              <strong>Статус:</strong>
-              <span>{{ mainMarriage.status }}</span>
-            </div>
-            <div class="mb-1">
-              <strong>Год гражданского брака:</strong>
-              <span v-if="mainMarriage.civilMarriageYear">{{ mainMarriage.civilMarriageYear }}</span>
-              <span v-else class="text-disabled">не указан</span>
-            </div>
-            <div class="mb-1">
-              <strong>Год венчания:</strong>
-              <span v-if="mainMarriage.churchMarriageYear">{{ mainMarriage.churchMarriageYear }}</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-            <div class="mb-1">
-              <strong>Венчанный брак:</strong>
-              <span v-if="mainMarriage.isChurchMarried === true">да</span>
-              <span v-else-if="mainMarriage.isChurchMarried === false">нет</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-            <div class="mb-1">
-              <strong>Развод / вдовство:</strong>
-              <span v-if="mainMarriage.status !== 'active' && mainMarriage.divorceYear">
-                {{ mainMarriage.divorceYear }}
-              </span>
-              <span v-else-if="mainMarriage.status !== 'active'">
-                статус: {{ mainMarriage.status }}
-              </span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-          </div>
-          <div v-else class="text-disabled">
-            Данных о браке супругов нет (или брак записан не в системе).
+
+          <div class="text-body-2">
+            <strong>Брак:</strong>
+            <v-chip
+              class="ml-2"
+              size="small"
+              :color="mainMarriage?.status === 'active' ? 'green' : 'grey'"
+              variant="tonal"
+            >
+              {{ marriageStatusLabel(mainMarriage?.status) }}
+            </v-chip>
           </div>
 
-          <!-- Предыдущие браки супругов -->
-          <v-divider class="my-3" />
-          <h3 class="text-subtitle-1 mb-2">
-            Предыдущие браки супругов
-          </h3>
-          <div v-if="previousMarriages.length">
-            <v-list density="compact">
-              <v-list-item
-                v-for="m in previousMarriages"
-                :key="m.id"
-              >
-                <v-list-item-title>
-                  <v-icon
-                    :icon="m.status === 'divorced' ? 'mdi-account-cancel' : 'mdi-account-heart-broken'"
-                    size="small"
-                    class="mr-1"
-                  />
-                  <span>
-                    {{ marriageSummary(m) }}
-                  </span>
-                </v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </div>
-          <div v-else class="text-disabled">
-            Предыдущих браков у супругов не найдено.
+          <div class="d-flex flex-wrap ga-2 mt-2" v-if="mainMarriage">
+            <v-chip v-if="mainMarriage.civilMarriageYear" size="small" variant="tonal">
+              гражданский: {{ mainMarriage.civilMarriageYear }}
+            </v-chip>
+
+            <v-chip v-if="mainMarriage.churchMarriageYear" size="small" variant="tonal">
+              венчание: {{ mainMarriage.churchMarriageYear }}
+            </v-chip>
+
+            <v-chip
+              v-if="mainMarriage.isChurchMarried === true"
+              size="small"
+              color="primary"
+              variant="tonal"
+            >
+              венчанный
+            </v-chip>
+
+            <v-chip
+              v-if="mainMarriage.status !== 'active' && mainMarriage.divorceYear"
+              size="small"
+              variant="tonal"
+            >
+              год: {{ mainMarriage.divorceYear }}
+            </v-chip>
           </div>
         </div>
 
         <div v-else>
-          <v-alert type="info" variant="outlined">
-            По этому адресу не найдено пары "муж-жена". Возможно, семья не заведена
-            как брак в системе или люди ещё не добавлены.
+          <v-alert v-if="!residentsSorted.length" type="info" variant="tonal">
+            По этому адресу пока нет записанных людей.
           </v-alert>
+
+          <v-row v-else>
+            <v-col v-for="p in residentsSorted" :key="p.id" cols="12" md="6">
+              <PersonInfoCard :person="p" @open="goToPerson" />
+            </v-col>
+          </v-row>
         </div>
       </v-card-text>
     </v-card>
-<!-- 3. Дети -->
-<v-card class="mb-4">
-  <v-card-title>
-    Дети
-  </v-card-title>
-  <v-card-text>
-    <v-row class="mb-3">
-  <v-col cols="12">
-    <v-btn
-      color="primary"
-      variant="text"
-      prepend-icon="mdi-baby-face-outline"
-      :disabled="!canAddChild || !mainHusband || !mainWife"
-      @click="showChildDialog = true"
-    >
-      Добавить ребёнка
-    </v-btn>
-    <span
-      v-if="!mainHusband || !mainWife"
-      class="text-body-2 text-medium-emphasis ml-2"
-    >
-      Чтобы автоматически проставить родителей, нужна пара "муж-жена" по этому адресу.
-    </span>
-  </v-col>
-</v-row>
-    <!-- Desktop / tablet: таблица -->
-    <div v-if="childrenOfMainCouple.length && !isMobile">
-      <v-table density="comfortable">
-        <thead>
-          <tr>
-            <th class="text-left">Имя</th>
-            <th class="text-left">Дата рождения</th>
-            <th class="text-left">Вероисповедание</th>
-            <th class="text-left">Крещение</th>
-            <th class="text-left">Миропомазание</th>
-            <th class="text-left">Первое причастие</th>
-            <th class="text-left">Катехезы</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="child in childrenOfMainCouple"
-            :key="child.id"
-            class="cursor-pointer"
-            @click="goToPerson(child.id)"
-          >
-            <td>
-              {{ childDisplayName(child) }}
-            </td>
-            <td>
-              <span v-if="child.birthDate">{{ child.birthDate }}</span>
-              <span v-else class="text-disabled">—</span>
-            </td>
-            <td>
-              <span v-if="child.religion">{{ child.religion }}</span>
-              <span v-else class="text-disabled">—</span>
-            </td>
-            <td>
-              <span v-if="child.baptismYear">{{ child.baptismYear }}</span>
-              <span v-else class="text-disabled">—</span>
-            </td>
-            <td>
-              <span v-if="child.chrismationYear">{{ child.chrismationYear }}</span>
-              <span v-else class="text-disabled">—</span>
-            </td>
-            <td>
-              <span v-if="child.firstCommunionYear">{{ child.firstCommunionYear }}</span>
-              <span v-else class="text-disabled">—</span>
-            </td>
-            <td>
-              <span v-if="child.catechesis === true">ходит</span>
-              <span v-else-if="child.catechesis === false">не ходит</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-    </div>
 
-    <!-- Mobile: карточки -->
-    <div v-else-if="childrenOfMainCouple.length && isMobile">
-      <v-list density="comfortable">
-        <v-list-item
-          v-for="child in childrenOfMainCouple"
-          :key="child.id"
-          class="cursor-pointer"
-          @click="goToPerson(child.id)"
-        >
-          <v-list-item-title>
-            <strong>{{ childDisplayName(child) }}</strong>
-          </v-list-item-title>
-          <v-list-item-subtitle>
-            <div>
-              <strong>Дата рождения:</strong>
-              <span v-if="child.birthDate">{{ child.birthDate }}</span>
-              <span v-else class="text-disabled">не указана</span>
-            </div>
-            <div>
-              <strong>Вероисповедание:</strong>
-              <span v-if="child.religion">{{ child.religion }}</span>
-              <span v-else class="text-disabled">не указано</span>
-            </div>
-            <div>
-              <strong>Крещение:</strong>
-              <span v-if="child.baptismYear">{{ child.baptismYear }}</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-            <div>
-              <strong>Миропомазание:</strong>
-              <span v-if="child.chrismationYear">{{ child.chrismationYear }}</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-            <div>
-              <strong>Первое причастие:</strong>
-              <span v-if="child.firstCommunionYear">{{ child.firstCommunionYear }}</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-            <div>
-              <strong>Катехезы:</strong>
-              <span v-if="child.catechesis === true">ходит</span>
-              <span v-else-if="child.catechesis === false">не ходит</span>
-              <span v-else class="text-disabled">нет данных</span>
-            </div>
-          </v-list-item-subtitle>
-        </v-list-item>
-      </v-list>
-    </div>
-
-    <div v-else class="text-disabled">
-      Дети не найдены.
-    </div>
-  </v-card-text>
-</v-card>
-
-    <!-- 4. Другие жители -->
-    <v-card class="mb-4">
-      <v-card-title>
-        Другие жители
+    <!-- 3) Дети -->
+    <v-card class="mb-4" rounded="lg" border>
+      <v-card-title class="text-subtitle-1">
+        Дети
+        <span class="text-body-2 text-medium-emphasis ml-2">
+          ({{ childrenToShow.length }})
+        </span>
       </v-card-title>
+
       <v-card-text>
-        <div v-if="otherResidents.length">
-          <v-list density="comfortable">
-            <v-list-item
-              v-for="p in otherResidents"
-              :key="p.id"
-              class="cursor-pointer"
-              @click="goToPerson(p.id)"
-            >
-              <v-list-item-title>
-                {{ fullName(p) }}
-              </v-list-item-title>
-              <v-list-item-subtitle>
-                <span v-if="p.religion">{{ p.religion }}</span>
-                <span v-if="p.birthDate">
-                  · {{ p.birthDate }}
-                </span>
-              </v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
+        <div class="d-flex align-center justify-space-between mb-2">
+          <div class="text-body-2 text-medium-emphasis">
+            {{ childrenHint }}
+          </div>
+
+          <v-btn
+            color="primary"
+            variant="tonal"
+            prepend-icon="mdi-plus"
+            @click="showChildDialog = true"
+          >
+            Добавить
+          </v-btn>
         </div>
-        <div v-else class="text-disabled">
-          Других жителей нет.
-        </div>
+
+        <v-alert
+          v-if="!mainCouple"
+          type="info"
+          variant="outlined"
+          class="mb-3"
+        >
+          Супруги по адресу не определены — поэтому список детей строится по признакам:
+          “есть родители” или “возраст &lt; 18” (если есть дата рождения).
+        </v-alert>
+
+        <v-alert v-if="!childrenToShow.length" type="info" variant="tonal">
+          Детей не найдено.
+        </v-alert>
+
+        <v-row v-else>
+          <v-col v-for="c in childrenToShow" :key="c.id" cols="12" md="6">
+            <ChildInfoCard
+              :child="c"
+              :father="getPerson(c.fatherId)"
+              :mother="getPerson(c.motherId)"
+              @open="goToPerson"
+            />
+          </v-col>
+        </v-row>
       </v-card-text>
     </v-card>
 
-    <!-- 5. Визиты -->
-    <v-card class="mb-4">
-      <v-card-title>
+    <!-- 4) Другие жители (только если есть супруги и есть другие) -->
+    <v-card
+      v-if="mainCouple && otherResidentsSorted.length"
+      class="mb-4"
+      rounded="lg"
+      border
+    >
+      <v-card-title class="text-subtitle-1">
+        Другие жители
+        <span class="text-body-2 text-medium-emphasis ml-2">
+          ({{ otherResidentsSorted.length }})
+        </span>
+      </v-card-title>
+
+      <v-card-text>
+        <v-row>
+          <v-col v-for="p in otherResidentsSorted" :key="p.id" cols="12" md="6">
+            <PersonInfoCard :person="p" @open="goToPerson" />
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
+
+    <!-- 5) Визиты -->
+    <v-card class="mb-4" rounded="lg" border>
+      <v-card-title class="text-subtitle-1">
         Визиты
       </v-card-title>
+
       <v-card-text>
         <div class="mb-2">
           <strong>Годы визитов:</strong>
-          <span v-if="visitYearsSorted.length">
-            {{ visitYearsSorted.join(', ') }}
-          </span>
-          <span v-else class="text-disabled">
-            ещё не посещали
-          </span>
+          <span v-if="visitYearsSorted.length">{{ visitYearsSorted.join(", ") }}</span>
+          <span v-else class="text-medium-emphasis">ещё не посещали</span>
         </div>
-        <v-btn
-          color="primary"
-          class="mr-2"
-          @click="toggleVisitYear(true)"
-        >
-          Навестить ({{ currentYear }})
-        </v-btn>
-        <v-btn
-          color="secondary"
-          @click="toggleVisitYear(false)"
-          :disabled="!visitYearsSet.has(currentYear)"
-        >
-          Убрать посещение ({{ currentYear }})
-        </v-btn>
+
+        <div class="d-flex ga-2 flex-wrap">
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="isBusy(address.id)"
+            :disabled="isBusy(address.id)"
+            @click="toggleCurrentYear(address)"
+          >
+            {{ visitedThisYear ? `Снять (${currentYear})` : `Навестить (${currentYear})` }}
+          </v-btn>
+
+          <v-btn
+            variant="tonal"
+            prepend-icon="mdi-calendar-edit"
+            :disabled="isBusy(address.id)"
+            @click="openVisitSheet()"
+          >
+            Задним числом
+          </v-btn>
+        </div>
       </v-card-text>
     </v-card>
 
-    <v-alert type="info" variant="outlined">
-      На следующих шагах можно будет добавить быстрый ввод новых детей и
-      супругов прямо с этой страницы.
-    </v-alert>
-  <child-create-dialog
-  v-if="address"
-  v-model="showChildDialog"
-  :address="address"
-  :father="mainHusband"
-  :mother="mainWife"
-  @created="onChildCreated"
-/>
-  </div>
+    <!-- Bottom sheet: визиты -->
+    <v-bottom-sheet v-model="visitSheet">
+      <v-card v-if="address">
+        <v-card-title class="text-h6">
+          Визиты: {{ addressTitle }}
+        </v-card-title>
 
+        <v-card-text>
+          <div class="text-body-2 text-medium-emphasis mb-3">
+            Нажимайте на год, чтобы поставить или убрать отметку.
+          </div>
+
+          <div class="d-flex flex-wrap ga-2 mb-4">
+            <v-chip
+              v-for="y in yearChips"
+              :key="y"
+              :color="hasVisitedYear(address, y) ? 'primary' : undefined"
+              :variant="hasVisitedYear(address, y) ? 'flat' : 'outlined'"
+              :disabled="isBusy(address.id)"
+              @click="toggleYear(address, y)"
+            >
+              {{ y }}
+            </v-chip>
+          </div>
+
+          <v-divider class="my-3" />
+
+          <v-row>
+            <v-col cols="7">
+              <v-text-field
+                v-model.number="customYear"
+                label="Год (вручную)"
+                type="number"
+                variant="outlined"
+                density="comfortable"
+                placeholder="например, 2024"
+              />
+            </v-col>
+
+            <v-col cols="5" class="d-flex align-center">
+              <v-btn
+                color="primary"
+                variant="flat"
+                block
+                :disabled="!isValidCustomYear || isBusy(address.id)"
+                @click="toggleYear(address, customYear)"
+              >
+                Применить
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="visitSheet = false">Закрыть</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-bottom-sheet>
+
+    <!-- Диалог добавления ребёнка -->
+    <ChildCreateDialog
+      v-if="address"
+      v-model="showChildDialog"
+      :address="address"
+      :father="mainHusband"
+      :mother="mainWife"
+      @created="onChildCreated"
+    />
+
+    <!-- Snackbar Undo -->
+    <v-snackbar v-model="snackbar.open" :timeout="3500">
+      {{ snackbar.text }}
+      <template #actions>
+        <v-btn
+          v-if="snackbar.undo"
+          variant="text"
+          color="primary"
+          @click="snackbar.undo()"
+        >
+          Отменить
+        </v-btn>
+        <v-btn variant="text" @click="snackbar.open = false">OK</v-btn>
+      </template>
+    </v-snackbar>
+  </div>
 
   <div v-else>
     <v-alert type="error" variant="outlined">
       Адрес не найден.
     </v-alert>
-    <v-btn class="mt-2" @click="goBack">Вернуться к списку</v-btn>
+    <v-btn class="mt-3" color="primary" variant="flat" @click="goBackToList">
+      Назад к списку адресов
+    </v-btn>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useDisplay } from 'vuetify';   
-import { useAddressesStore } from '../stores/addresses';
-import { usePeopleStore } from '../stores/people';
-import { useMarriagesStore } from '../stores/marriages';
-import AddressCard from '../components/AddressCard.vue';
-import ChildCreateDialog from '../components/ChildCreateDialog.vue';
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+
+import { useAddressesStore } from "../stores/addresses";
+import { usePeopleStore } from "../stores/people";
+import { useMarriagesStore } from "../stores/marriages";
+import { useAppUiStore } from "../stores/appUi";
+
+import ChildCreateDialog from "../components/ChildCreateDialog.vue";
+import PersonInfoCard from "../components/PersonInfoCard.vue";
+import ChildInfoCard from "../components/ChildInfoCard.vue";
 
 const route = useRoute();
 const router = useRouter();
+
+const appUi = useAppUiStore();
 const addressesStore = useAddressesStore();
 const peopleStore = usePeopleStore();
 const marriagesStore = useMarriagesStore();
-const { smAndDown } = useDisplay();                // ← НОВОЕ
-const isMobile = computed(() => smAndDown.value);  // ← НОВОЕ
 
-const peopleLoading = ref(false);
 const currentYear = new Date().getFullYear();
 
+const normalize = (s) => String(s || "").toLowerCase().replaceAll("ё", "е").trim();
+
+const birthYear = (value) => {
+  const s = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Number(s.slice(0, 4));
+  const y = Number(s);
+  return Number.isFinite(y) ? y : null;
+};
+
+const estimateAge = (birthDateStr) => {
+  const y = birthYear(birthDateStr);
+  if (!y) return null;
+  return currentYear - y;
+};
+
+// ===== Busy + snackbar undo =====
+const busyByAddressId = ref(new Set());
+const isBusy = (addressId) => busyByAddressId.value.has(addressId);
+
+const snackbar = ref({ open: false, text: "", undo: null });
+const showUndo = ({ text, undo }) => {
+  snackbar.value = { open: true, text, undo };
+};
+
+const withBusy = async (addressId, fn) => {
+  busyByAddressId.value = new Set([...busyByAddressId.value, addressId]);
+  try {
+    await fn();
+  } finally {
+    const next = new Set(busyByAddressId.value);
+    next.delete(addressId);
+    busyByAddressId.value = next;
+  }
+};
+
+// ===== Address =====
 const address = computed(() => {
   const id = String(route.params.id);
   return addressesStore.getAddressById(id).value;
 });
 
-// все жители по адресу
+const addressTitle = computed(() => {
+  const a = address.value;
+  if (!a) return "Адрес";
+  const apt = a.apartment ? `-${a.apartment}` : "";
+  return `${a.localityName}, ${a.street} ${a.house}${apt}`;
+});
+
+// ===== AppBar =====
+const setAppBar = () => {
+  appUi.set({
+    title: addressTitle.value || "Адрес",
+    showBack: true,
+    backTo: { name: "AddressList" },
+    actions: [
+      {
+        icon: "mdi-pencil",
+        label: "Редактировать",
+        to: { name: "AddressEdit", params: { id: String(route.params.id) } },
+        disabled: !address.value,
+      },
+    ],
+  });
+};
+
+watch(addressTitle, () => setAppBar());
+watch(
+  () => route.params.id,
+  () => setAppBar()
+);
+
+onMounted(async () => {
+  setAppBar();
+
+  if (!addressesStore.addresses.length && !addressesStore.loading) {
+    await addressesStore.fetchAddresses();
+  }
+  if (!peopleStore.people.length && !peopleStore.loading) {
+    await peopleStore.fetchPeople();
+  }
+  if (!marriagesStore.marriages.length && !marriagesStore.loading) {
+    await marriagesStore.fetchMarriages();
+  }
+});
+
+onUnmounted(() => {
+  appUi.reset();
+});
+
+const goBackToList = () => router.push({ name: "AddressList" });
+const goToPerson = (personId) => router.push({ name: "PeopleDetail", params: { id: personId } });
+
+// ===== People (residents) =====
 const residents = computed(() => {
   const id = String(route.params.id);
   return peopleStore.people.filter((p) => p.addressId === id);
 });
 
-const fullName = (p) =>
-  [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+const residentsSorted = computed(() => {
+  return [...residents.value].sort((a, b) => {
+    const da = a.isDeceased ? 1 : 0;
+    const db = b.isDeceased ? 1 : 0;
+    if (da !== db) return da - db;
 
-// браки по id человека
-const marriagesByPersonId = computed(() => {
-  const map = new Map();
-  marriagesStore.marriages.forEach((m) => {
-    const arr1 = map.get(m.husbandId) || [];
-    arr1.push(m);
-    map.set(m.husbandId, arr1);
-
-    const arr2 = map.get(m.wifeId) || [];
-    arr2.push(m);
-    map.set(m.wifeId, arr2);
+    const aa = normalize(`${a.lastName} ${a.firstName} ${a.middleName}`);
+    const bb = normalize(`${b.lastName} ${b.firstName} ${b.middleName}`);
+    return aa.localeCompare(bb, "ru");
   });
-  return map;
 });
 
-// ищем "основную пару" супружеского брака, живущую по этому адресу
+// ===== Main couple =====
 const mainCouple = computed(() => {
-  // критерий: активный брак, и оба супруга живут по этому адресу
   for (const m of marriagesStore.marriages) {
-    if (m.status !== 'active') continue;
+    if (m.status !== "active") continue;
     const husband = residents.value.find((p) => p.id === m.husbandId);
     const wife = residents.value.find((p) => p.id === m.wifeId);
-    if (husband && wife) {
-      return { marriage: m, husband, wife };
-    }
+    if (husband && wife) return { marriage: m, husband, wife };
   }
-  // если активных нет, можно (по желанию) подобрать первый неактивный,
-  // но сейчас будем показывать только активный как "основную" пару
   return null;
 });
 
@@ -487,79 +500,47 @@ const mainMarriage = computed(() => mainCouple.value?.marriage || null);
 const mainHusband = computed(() => mainCouple.value?.husband || null);
 const mainWife = computed(() => mainCouple.value?.wife || null);
 
-// предыдущие браки супругов (все неактивные браки мужа и жены)
-const previousMarriages = computed(() => {
-  if (!mainHusband.value && !mainWife.value) return [];
-  const result = [];
-  const pushIf = (arr, personId) => {
-    const list = marriagesByPersonId.value.get(personId) || [];
-    list.forEach((m) => {
-      if (m.status === 'active') return;
-      result.push(m);
-    });
-  };
-  if (mainHusband.value) pushIf(result, mainHusband.value.id);
-  if (mainWife.value) pushIf(result, mainWife.value.id);
-
-  // чтобы не было дубликатов, если один и тот же брак попал дважды
-  const uniq = new Map();
-  result.forEach((m) => uniq.set(m.id, m));
-  return Array.from(uniq.values());
-});
-
-// краткое описание брака
-const marriageSummary = (m) => {
-  const husband = peopleStore.getPersonById(m.husbandId).value;
-  const wife = peopleStore.getPersonById(m.wifeId).value;
-  const parts = [];
-
-  if (husband && wife) {
-    parts.push(`${fullName(husband)} — ${fullName(wife)}`);
-  } else {
-    parts.push(`husband=${m.husbandId}, wife=${m.wifeId}`);
-  }
-
-  if (m.civilMarriageYear) {
-    parts.push(`гражд. брак: ${m.civilMarriageYear}`);
-  }
-  if (m.churchMarriageYear) {
-    parts.push(`венчание: ${m.churchMarriageYear}`);
-  }
-  if (m.status !== 'active') {
-    parts.push(`статус: ${m.status}${m.divorceYear ? ' (' + m.divorceYear + ')' : ''}`);
-  }
-
-  return parts.join(' · ');
+const marriageStatusLabel = (status) => {
+  if (status === "active") return "активный";
+  if (status === "divorced") return "разведены";
+  if (status === "widowed") return "вдовство";
+  return status || "неизвестно";
 };
 
-// Дети основной пары:
-// дети, у которых fatherId == husband.id и motherId == wife.id
+// ===== Children =====
 const childrenOfMainCouple = computed(() => {
   if (!mainHusband.value || !mainWife.value) return [];
   const fatherId = mainHusband.value.id;
   const motherId = mainWife.value.id;
 
-  return residents.value.filter(
-    (p) => p.fatherId === fatherId && p.motherId === motherId
-  );
+  return residents.value
+    .filter((p) => p.fatherId === fatherId && p.motherId === motherId)
+    .sort((a, b) => (a.birthDate || "").localeCompare(b.birthDate || ""));
 });
 
-// Имя ребёнка: выводим фамилию только если отличается от одного из родителей
-const childDisplayName = (child) => {
-  const parentsLastNames = new Set(
-    [mainHusband.value?.lastName, mainWife.value?.lastName].filter(Boolean)
-  );
-  const sameLast = child.lastName && parentsLastNames.has(child.lastName);
+const childrenFallback = computed(() => {
+  // если нет супругов: ребёнок = есть родители ИЛИ возраст < 18 (если знаем дату)
+  return residents.value
+    .filter((p) => {
+      const hasParents = !!(p.fatherId || p.motherId);
+      const age = estimateAge(p.birthDate);
+      const isChildByAge = age != null ? age < 18 : false;
+      return hasParents || isChildByAge;
+    })
+    .sort((a, b) => (a.birthDate || "").localeCompare(b.birthDate || ""));
+});
 
-  if (sameLast) {
-    // только имя + отчество
-    return [child.firstName, child.middleName].filter(Boolean).join(' ');
-  }
-  return fullName(child);
-};
+const childrenToShow = computed(() => (mainCouple.value ? childrenOfMainCouple.value : childrenFallback.value));
 
-// Остальные жители (не входят в основную пару и не их дети)
+const childrenHint = computed(() => {
+  if (mainCouple.value) return "Дети, у которых отец и мать совпадают с супругами по адресу.";
+  return "Авто-режим: есть родители или возраст < 18 (если указана дата рождения).";
+});
+
+// ===== Other residents (only when couple exists) =====
 const otherResidents = computed(() => {
+  if (!mainCouple.value) return [];
+
   const excludeIds = new Set();
   if (mainHusband.value) excludeIds.add(mainHusband.value.id);
   if (mainWife.value) excludeIds.add(mainWife.value.id);
@@ -568,90 +549,144 @@ const otherResidents = computed(() => {
   return residents.value.filter((p) => !excludeIds.has(p.id));
 });
 
-// Визиты: работа с visitYears
-const visitYearsSet = computed(() => {
-  const years = Array.isArray(address.value?.visitYears)
-    ? address.value.visitYears
-    : [];
-  return new Set(years);
+const otherResidentsSorted = computed(() => {
+  return [...otherResidents.value].sort((a, b) => {
+    const aa = normalize(`${a.lastName} ${a.firstName} ${a.middleName}`);
+    const bb = normalize(`${b.lastName} ${b.firstName} ${b.middleName}`);
+    return aa.localeCompare(bb, "ru");
+  });
+});
+
+// ===== Visits =====
+const hasVisitedYear = (a, year) => {
+  const years = Array.isArray(a?.visitYears) ? a.visitYears : [];
+  return years.includes(Number(year));
+};
+
+const visitedThisYear = computed(() => {
+  if (!address.value) return false;
+  return hasVisitedYear(address.value, currentYear);
 });
 
 const visitYearsSorted = computed(() => {
-  return Array.from(visitYearsSet.value).sort((a, b) => a - b);
+  const years = Array.isArray(address.value?.visitYears) ? address.value.visitYears : [];
+  return [...years].sort((a, b) => a - b);
 });
 
-const toggleVisitYear = async (add) => {
-  if (!address.value) return;
-  const id = address.value.id;
-  const years = new Set(
-    Array.isArray(address.value.visitYears)
-      ? address.value.visitYears
-      : []
-  );
+const visitSheet = ref(false);
+const customYear = ref(null);
 
-  if (add) {
-    years.add(currentYear);
-  } else {
-    years.delete(currentYear);
-  }
+const yearChips = computed(() => {
+  const yearsExisting = Array.isArray(address.value?.visitYears) ? address.value.visitYears : [];
+  const base = [];
+  for (let y = currentYear; y >= currentYear - 10; y--) base.push(y);
 
-  const newYears = Array.from(years).sort((a, b) => a - b);
-
-  try {
-    await addressesStore.updateAddress(id, { visitYears: newYears });
-  } catch (e) {
-    console.error('Ошибка при обновлении визитов:', e);
-  }
-};
-
-onMounted(async () => {
-  if (!addressesStore.addresses.length && !addressesStore.loading) {
-    await addressesStore.fetchAddresses();
-  }
-  if (!peopleStore.people.length && !peopleStore.loading) {
-    peopleLoading.value = true;
-    await peopleStore.fetchPeople();
-    peopleLoading.value = false;
-  }
-  if (!marriagesStore.marriages.length && !marriagesStore.loading) {
-    await marriagesStore.fetchMarriages();
-  }
+  const set = new Set([...base, ...yearsExisting.map(Number).filter(Number.isFinite)]);
+  return Array.from(set).sort((x, y) => y - x);
 });
 
-const goBack = () => {
-  router.push({ name: 'AddressList' });
+const isValidCustomYear = computed(() => {
+  const y = Number(customYear.value);
+  if (!Number.isFinite(y)) return false;
+  if (y < 1900) return false;
+  if (y > currentYear + 1) return false;
+  return true;
+});
+
+const openVisitSheet = () => {
+  customYear.value = null;
+  visitSheet.value = true;
 };
 
-const goToEdit = () => {
-  router.push({
-    name: 'AddressEdit',
-    params: { id: route.params.id },
+const toggleCurrentYear = async (addr) => {
+  const id = addr.id;
+  const year = currentYear;
+  const already = hasVisitedYear(addr, year);
+
+  await withBusy(id, async () => {
+    if (!already) {
+      await addressesStore.markVisitedYear(id, year);
+      showUndo({
+        text: `Визит отмечен: ${year}`,
+        undo: async () => {
+          await withBusy(id, async () => {
+            await addressesStore.unmarkVisitedYear(id, year);
+            showUndo({ text: `Отменено: ${year}`, undo: null });
+          });
+        },
+      });
+    } else {
+      await addressesStore.unmarkVisitedYear(id, year);
+      showUndo({
+        text: `Визит снят: ${year}`,
+        undo: async () => {
+          await withBusy(id, async () => {
+            await addressesStore.markVisitedYear(id, year);
+            showUndo({ text: `Возвращено: ${year}`, undo: null });
+          });
+        },
+      });
+    }
   });
 };
 
-const goToPerson = (personId) => {
-  router.push({
-    name: 'PeopleDetail',
-    params: { id: personId },
+const toggleYear = async (addr, year) => {
+  const id = addr.id;
+  const y = Number(year);
+  if (!Number.isFinite(y)) return;
+
+  const already = hasVisitedYear(addr, y);
+
+  await withBusy(id, async () => {
+    if (!already) {
+      await addressesStore.markVisitedYear(id, y);
+      showUndo({
+        text: `Визит отмечен: ${y}`,
+        undo: async () => {
+          await withBusy(id, async () => {
+            await addressesStore.unmarkVisitedYear(id, y);
+            showUndo({ text: `Отменено: ${y}`, undo: null });
+          });
+        },
+      });
+    } else {
+      await addressesStore.unmarkVisitedYear(id, y);
+      showUndo({
+        text: `Визит снят: ${y}`,
+        undo: async () => {
+          await withBusy(id, async () => {
+            await addressesStore.markVisitedYear(id, y);
+            showUndo({ text: `Возвращено: ${y}`, undo: null });
+          });
+        },
+      });
+    }
   });
 };
 
+// ===== Person lookup for child cards =====
+const personById = computed(() => {
+  const map = new Map();
+  peopleStore.people.forEach((p) => map.set(p.id, p));
+  return map;
+});
+const getPerson = (id) => (id ? personById.value.get(id) || null : null);
+
+// ===== Call =====
+const callHome = () => {
+  const phone = String(address.value?.phoneHome || "").trim();
+  if (!phone) return;
+  const tel = phone.replace(/\s+/g, "");
+  window.location.href = `tel:${tel}`;
+};
+
+// ===== Child dialog =====
 const showChildDialog = ref(false);
-
-const canAddChild = computed(() => {
-  // Можно добавлять ребёнка, если адрес загружен
-  // и хотя бы один из родителей есть (лучше оба)
-  return !!address.value;
-});
-
 const onChildCreated = async () => {
-  // После добавления ребёнка обновим людей
   await peopleStore.fetchPeople();
 };
 </script>
 
 <style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
+/* ничего критичного; оставлено пустым намеренно */
 </style>

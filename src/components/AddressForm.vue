@@ -88,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted } from "vue";
 
 const props = defineProps({
   value: {
@@ -97,70 +97,79 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:value', 'validity-change']);
+const emit = defineEmits(["update:value", "validity-change"]);
 
 const formRef = ref(null);
 const isValid = ref(false);
 
+const currentYear = new Date().getFullYear();
+
 const localityOptions = [
-  { label: 'Город', value: 'город' },
-  { label: 'Посёлок', value: 'посёлок' },
-  { label: 'Деревня', value: 'деревня' },
+  { label: "Город", value: "город" },
+  { label: "Посёлок", value: "посёлок" },
+  { label: "Деревня", value: "деревня" },
 ];
 
 const localValue = ref({
-  localityType: '',
-  localityName: '',
-  street: '',
-  house: '',
-  apartment: '',
-  phoneHome: '',
+  localityType: "",
+  localityName: "",
+  street: "",
+  house: "",
+  apartment: "",
+  phoneHome: "",
   visitYears: [],
 });
 
 const visitYearsInput = ref([]);
 
-const required = (v) => !!v || 'Обязательное поле';
+const required = (v) => !!v || "Обязательное поле";
+
+function normalizeVisitYears(input) {
+  const arr = Array.isArray(input) ? input : [];
+  const years = arr
+    .map((x) => String(x ?? "").trim())
+    .filter((s) => s !== "")
+    .map((s) => {
+      // берём только целое (чтобы "2022 " и "2022" были одинаковыми)
+      const n = Number.parseInt(s, 10);
+      return Number.isFinite(n) ? n : null;
+    })
+    .filter((n) => n != null)
+    .filter((n) => n >= 1900 && n <= currentYear + 1);
+
+  // уникально + сортировка по возрастанию
+  return Array.from(new Set(years)).sort((a, b) => a - b);
+}
 
 // Инициализация из props.value однократно
 onMounted(() => {
   setLocalFromProps(props.value);
 });
 
-// !!! ВАЖНО: убираем watch по props.value, чтобы не зациклиться
-// Если когда‑нибудь понадобится поддержка "жёсткого" изменения value снаружи,
-// придётся добавить сравнение до/после и обновлять только при реальной смене.
-
 // Любое изменение локального состояния → эмитим наверх (с защитой от одинаковых значений)
 watch(
   [localValue, visitYearsInput],
   () => {
-    const normalizedYears = visitYearsInput.value
-      .filter((y) => y != null && String(y).trim() !== '')
-      .map((y) => {
-        const num = Number(y);
-        return Number.isNaN(num) ? y : num;
-      });
+    const normalizedYears = normalizeVisitYears(visitYearsInput.value);
 
     const result = {
       ...localValue.value,
       visitYears: normalizedYears,
     };
 
-    // простая защита: если объект по сути такой же, как props.value, не эмитим
     const prev = props.value || {};
     const same =
-      prev.localityType === result.localityType &&
-      prev.localityName === result.localityName &&
-      prev.street === result.street &&
-      prev.house === result.house &&
-      prev.apartment === result.apartment &&
-      prev.phoneHome === result.phoneHome &&
-      JSON.stringify(prev.visitYears || []) ===
+      (prev.localityType || "") === (result.localityType || "") &&
+      (prev.localityName || "") === (result.localityName || "") &&
+      (prev.street || "") === (result.street || "") &&
+      (prev.house || "") === (result.house || "") &&
+      (prev.apartment || "") === (result.apartment || "") &&
+      (prev.phoneHome || "") === (result.phoneHome || "") &&
+      JSON.stringify(Array.isArray(prev.visitYears) ? prev.visitYears : []) ===
         JSON.stringify(result.visitYears || []);
 
     if (!same) {
-      emit('update:value', result);
+      emit("update:value", result);
     }
   },
   { deep: true }
@@ -168,20 +177,23 @@ watch(
 
 // валидность формы
 watch(isValid, (val) => {
-  emit('validity-change', val);
+  emit("validity-change", val);
 });
 
 function setLocalFromProps(src) {
   const v = src || {};
+  const years = Array.isArray(v.visitYears) ? v.visitYears : [];
+
   localValue.value = {
-    localityType: v.localityType || '',
-    localityName: v.localityName || '',
-    street: v.street || '',
-    house: v.house || '',
-    apartment: v.apartment || '',
-    phoneHome: v.phoneHome || '',
-    visitYears: Array.isArray(v.visitYears) ? v.visitYears : [],
+    localityType: v.localityType || "",
+    localityName: v.localityName || "",
+    street: v.street || "",
+    house: v.house || "",
+    apartment: v.apartment || "",
+    phoneHome: v.phoneHome || "",
+    visitYears: normalizeVisitYears(years),
   };
+
   visitYearsInput.value = [...localValue.value.visitYears];
 }
 
@@ -191,7 +203,5 @@ async function validate() {
   return res.valid ?? res;
 }
 
-defineExpose({
-  validate,
-});
+defineExpose({ validate });
 </script>

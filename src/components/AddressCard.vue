@@ -1,44 +1,25 @@
 <template>
-  <v-card>
-    <v-card-title class="d-flex flex-column align-start">
-      <div class="text-h6">
+  <v-card flat="tile">
+    <v-card-title class="pb-1">
+      <div class="text-h6 text-truncate">
         {{ fullAddress }}
       </div>
-      <div class="text-subtitle-2 text-muted">
-        Домашний телефон:
-        <span v-if="address.phoneHome">{{ address.phoneHome }}</span>
-        <span v-else class="text-disabled">не указан</span>
+
+      <div v-if="address.phoneHome" class="text-body-2 text-medium-emphasis mt-1">
+        <v-icon size="16" class="me-1">mdi-phone</v-icon>
+        {{ address.phoneHome }}
       </div>
     </v-card-title>
 
-    <v-card-text>
-      <v-row>
-        <v-col cols="12" md="6">
-          <div class="mb-2">
-            <strong>Населённый пункт:</strong>
-            {{ address.localityType }} {{ address.localityName }}
-          </div>
-          <div class="mb-2">
-            <strong>Улица:</strong> {{ address.street }}
-          </div>
-          <div class="mb-2">
-            <strong>Дом:</strong> {{ address.house }}
-          </div>
-          <div class="mb-2" v-if="address.apartment">
-            <strong>Квартира:</strong> {{ address.apartment }}
-          </div>
-        </v-col>
+    <v-card-text class="pt-2">
+      <div v-if="address.apartment" class="text-body-2">
+        <span class="text-medium-emphasis">Квартира:</span> {{ address.apartment }}
+      </div>
 
-        <v-col cols="12" md="6">
-          <div class="mb-2">
-            <strong>Визиты (годы):</strong>
-            <span v-if="address.visitYears?.length">
-              {{ address.visitYears.join(', ') }}
-            </span>
-            <span v-else class="text-disabled">нет данных о визитах</span>
-          </div>
-        </v-col>
-      </v-row>
+      <!-- Если есть какие-то дополнительные поля — лучше показывать только когда заполнены -->
+      <div v-if="address.notes" class="text-body-2 mt-2">
+        <span class="text-medium-emphasis">Примечания:</span> {{ address.notes }}
+      </div>
     </v-card-text>
   </v-card>
 </template>
@@ -47,10 +28,7 @@
 import { computed } from 'vue';
 
 const props = defineProps({
-  address: {
-    type: Object,
-    required: true,
-  },
+  address: { type: Object, required: true },
 });
 
 const fullAddress = computed(() => {

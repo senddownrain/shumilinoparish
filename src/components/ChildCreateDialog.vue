@@ -1,41 +1,56 @@
 <template>
-  <v-dialog v-model="model" max-width="520">
+  <v-dialog
+    v-model="model"
+    :fullscreen="smAndDown"
+    :max-width="smAndDown ? undefined : 560"
+    scrollable
+  >
     <v-card>
-      <v-card-title class="text-h6">
-        Добавить ребёнка
-      </v-card-title>
-      <v-card-text>
-        <v-alert
-          v-if="error"
-          type="error"
-          variant="outlined"
-          class="mb-3"
+      <!-- Header -->
+      <v-toolbar color="primary" density="comfortable">
+        <v-btn icon="mdi-close" variant="text" @click="cancel" />
+        <v-toolbar-title>Добавить ребёнка</v-toolbar-title>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :loading="saving"
+          :disabled="saving"
+          @click="save"
         >
+          Сохранить
+        </v-btn>
+      </v-toolbar>
+
+      <v-card-text class="pt-4">
+        <v-alert v-if="error" type="error" variant="outlined" class="mb-3">
           {{ error }}
         </v-alert>
 
-        <v-form ref="formRef" v-model="isValid">
-          <v-row>
-            <v-col cols="12">
-              <div class="text-body-2 text-medium-emphasis mb-2">
-                Адрес: <strong>{{ addressSummary }}</strong>
-              </div>
-              <div
-                v-if="father && mother"
-                class="text-body-2 text-medium-emphasis mb-2"
-              >
-                Родители:
-                <strong>{{ fullName(father) }}</strong> и
-                <strong>{{ fullName(mother) }}</strong>
-              </div>
-              <div v-else class="text-body-2 text-error mb-2">
-                Внимание: по этому адресу не определены родители (муж и жена).
-                Ребёнок всё равно будет привязан к адресу, но без родителей.
-              </div>
-            </v-col>
+        <!-- Контекст -->
+        <v-sheet class="pa-3 mb-4" rounded="lg" border>
+          <div class="text-body-2 text-medium-emphasis">
+            Адрес:
+            <strong>{{ addressSummary }}</strong>
+          </div>
 
-            <!-- ФИО -->
-            <v-col cols="12" md="4">
+          <div class="text-body-2 text-medium-emphasis mt-1">
+            Родители (по адресу):
+            <template v-if="props.father || props.mother">
+              <strong v-if="props.father">{{ fullName(props.father) }}</strong>
+              <span v-if="props.father && props.mother"> и </span>
+              <strong v-if="props.mother">{{ fullName(props.mother) }}</strong>
+            </template>
+            <template v-else>
+              <span class="text-error">не определены</span>
+            </template>
+          </div>
+        </v-sheet>
+
+        <v-form ref="formRef" v-model="isValid">
+          <!-- 1) Основное -->
+          <div class="text-subtitle-1 mb-2">Основное</div>
+          <v-row>
+            <v-col cols="12" sm="4">
               <v-text-field
                 v-model="form.lastName"
                 label="Фамилия"
@@ -44,7 +59,7 @@
                 density="comfortable"
               />
             </v-col>
-            <v-col cols="12" md="4">
+            <v-col cols="12" sm="4">
               <v-text-field
                 v-model="form.firstName"
                 label="Имя"
@@ -53,7 +68,7 @@
                 density="comfortable"
               />
             </v-col>
-            <v-col cols="12" md="4">
+            <v-col cols="12" sm="4">
               <v-text-field
                 v-model="form.middleName"
                 label="Отчество"
@@ -62,8 +77,7 @@
               />
             </v-col>
 
-            <!-- Пол и дата рождения -->
-            <v-col cols="12" md="4">
+            <v-col cols="12" sm="4">
               <v-select
                 v-model="form.sex"
                 :items="sexOptions"
@@ -75,7 +89,8 @@
                 density="comfortable"
               />
             </v-col>
-            <v-col cols="12" md="8">
+
+            <v-col cols="12" sm="8">
               <v-text-field
                 v-model="form.birthDate"
                 label="Дата рождения"
@@ -85,8 +100,7 @@
               />
             </v-col>
 
-            <!-- Вероисповедание -->
-            <v-col cols="12" md="6">
+            <v-col cols="12" sm="6">
               <v-select
                 v-model="form.religion"
                 :items="religionOptions"
@@ -98,9 +112,75 @@
                 density="comfortable"
               />
             </v-col>
+          </v-row>
 
-            <!-- Таинства -->
-            <v-col cols="12" md="6">
+          <v-divider class="my-4" />
+
+          <!-- 2) Родители (можно выбрать вручную) -->
+          <div class="d-flex align-center justify-space-between mb-2">
+            <div class="text-subtitle-1">Родители</div>
+            <v-switch
+              v-model="manualParents"
+              density="compact"
+              inset
+              label="Выбрать вручную"
+            />
+          </div>
+
+          <v-alert
+            v-if="!manualParents"
+            type="info"
+            variant="tonal"
+            class="mb-3"
+          >
+            Родители будут проставлены автоматически из адреса (если они переданы в диалог).
+            Включите “Выбрать вручную”, чтобы указать других.
+          </v-alert>
+
+          <v-row v-if="manualParents">
+            <v-col cols="12" sm="6">
+              <v-combobox
+                v-model="fatherModel"
+                :items="fatherOptions"
+                label="Отец"
+                item-title="label"
+                item-value="value"
+                prepend-inner-icon="mdi-account-outline"
+                variant="outlined"
+                density="comfortable"
+                clearable
+                hide-selected
+                return-object
+                hint="Начните вводить фамилию или имя"
+                persistent-hint
+              />
+            </v-col>
+
+            <v-col cols="12" sm="6">
+              <v-combobox
+                v-model="motherModel"
+                :items="motherOptions"
+                label="Мать"
+                item-title="label"
+                item-value="value"
+                prepend-inner-icon="mdi-account-outline"
+                variant="outlined"
+                density="comfortable"
+                clearable
+                hide-selected
+                return-object
+                hint="Начните вводить фамилию или имя"
+                persistent-hint
+              />
+            </v-col>
+          </v-row>
+
+          <v-divider class="my-4" />
+
+          <!-- 3) Таинства (быстро, компактно) -->
+          <div class="text-subtitle-1 mb-2">Таинства</div>
+          <v-row>
+            <v-col cols="12" sm="4">
               <v-text-field
                 v-model.number="form.baptismYear"
                 label="Год крещения"
@@ -109,7 +189,7 @@
                 density="comfortable"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" sm="4">
               <v-text-field
                 v-model.number="form.chrismationYear"
                 label="Год миропомазания"
@@ -118,7 +198,7 @@
                 density="comfortable"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" sm="4">
               <v-text-field
                 v-model.number="form.firstCommunionYear"
                 label="Год первого причастия"
@@ -138,11 +218,11 @@
           </v-row>
         </v-form>
       </v-card-text>
-      <v-card-actions>
+
+      <!-- Footer (на десктопе удобно оставить явные кнопки) -->
+      <v-card-actions v-if="!smAndDown">
         <v-spacer />
-        <v-btn variant="text" @click="cancel">
-          Отмена
-        </v-btn>
+        <v-btn variant="text" @click="cancel">Отмена</v-btn>
         <v-btn
           color="primary"
           variant="flat"
@@ -150,7 +230,7 @@
           :disabled="saving"
           @click="save"
         >
-          Добавить
+          Сохранить
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -159,25 +239,16 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+import { useDisplay } from 'vuetify';
 import { usePeopleStore } from '../stores/people';
 
+const { smAndDown } = useDisplay();
+
 const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
-  },
-  address: {
-    type: Object,
-    required: true,
-  },
-  father: {
-    type: Object,
-    default: null,
-  },
-  mother: {
-    type: Object,
-    default: null,
-  },
+  modelValue: { type: Boolean, default: false },
+  address: { type: Object, required: true },
+  father: { type: Object, default: null },
+  mother: { type: Object, default: null },
 });
 
 const emit = defineEmits(['update:modelValue', 'created']);
@@ -194,6 +265,11 @@ const isValid = ref(false);
 const saving = ref(false);
 const error = ref('');
 
+/** режим выбора родителей */
+const manualParents = ref(false);
+const fatherModel = ref(null);
+const motherModel = ref(null);
+
 const sexOptions = [
   { label: 'Мужской', value: 'male' },
   { label: 'Женский', value: 'female' },
@@ -206,6 +282,8 @@ const religionOptions = [
   { label: 'Некрещенный', value: 'некрещенный' },
   { label: 'Протестант', value: 'протестант' },
 ];
+
+const required = (v) => !!v || 'Обязательное поле';
 
 const form = reactive({
   lastName: '',
@@ -220,8 +298,6 @@ const form = reactive({
   catechesis: null,
 });
 
-const required = (v) => !!v || 'Обязательное поле';
-
 const fullName = (p) =>
   p ? [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ') : '';
 
@@ -232,20 +308,52 @@ const addressSummary = computed(() => {
   return `${a.localityType} ${a.localityName}, ${a.street}, д. ${a.house}${apt}`;
 });
 
-// При открытии диалога — подставляем фамилию от родителей (если можно)
-// При открытии диалога — подставляем фамилию: сначала отца, если есть, иначе матери
-// При открытии диалога — подставляем фамилию: сначала отца, если есть, иначе матери
+const fullNameWithYear = (p) => {
+  const base = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+  const year =
+    p.birthDate && p.birthDate.length >= 4 ? p.birthDate.slice(0, 4) : null;
+  return year ? `${base} (${year})` : base;
+};
+
+const fatherOptions = computed(() => {
+  return peopleStore.people
+    .filter((p) => p && p.sex === 'male' && !p.isDeceased)
+    .map((p) => ({ value: p.id, label: fullNameWithYear(p) }));
+});
+
+const motherOptions = computed(() => {
+  return peopleStore.people
+    .filter((p) => p && p.sex === 'female' && !p.isDeceased)
+    .map((p) => ({ value: p.id, label: fullNameWithYear(p) }));
+});
+
+/** При открытии: сброс + фамилия от родителей */
 watch(
   () => model.value,
-  (open) => {
-    if (open) {
-      resetForm();
-      if (props.father?.lastName) {
-        form.lastName = props.father.lastName;
-      } else if (props.mother?.lastName) {
-        form.lastName = props.mother.lastName;
-      }
+  async (open) => {
+    if (!open) return;
+
+    // подгрузим людей, если ещё нет (для ручного выбора родителей)
+    if (!peopleStore.people.length && !peopleStore.loading) {
+      await peopleStore.fetchPeople();
     }
+
+    resetForm();
+
+    // фамилия по умолчанию: отец, иначе мать
+    if (props.father?.lastName) form.lastName = props.father.lastName;
+    else if (props.mother?.lastName) form.lastName = props.mother.lastName;
+
+    // manualParents по умолчанию выключен
+    manualParents.value = false;
+    fatherModel.value = props.father
+      ? { value: props.father.id, label: fullNameWithYear(props.father) }
+      : null;
+    motherModel.value = props.mother
+      ? { value: props.mother.id, label: fullNameWithYear(props.mother) }
+      : null;
+
+    error.value = '';
   }
 );
 
@@ -260,17 +368,38 @@ const resetForm = () => {
   form.chrismationYear = null;
   form.firstCommunionYear = null;
   form.catechesis = null;
-  error.value = '';
 };
 
 const cancel = () => {
   model.value = false;
 };
 
+const resolveParents = () => {
+  // Если manualParents выключен — берём то, что пришло из props
+  if (!manualParents.value) {
+    return {
+      fatherId: props.father?.id || null,
+      motherId: props.mother?.id || null,
+    };
+  }
+
+  // Если включен — берём из combobox (можно оставить пустым)
+  const fatherId =
+    fatherModel.value && typeof fatherModel.value === 'object'
+      ? fatherModel.value.value || null
+      : null;
+  const motherId =
+    motherModel.value && typeof motherModel.value === 'object'
+      ? motherModel.value.value || null
+      : null;
+
+  return { fatherId, motherId };
+};
+
 const save = async () => {
   error.value = '';
-
   if (!formRef.value) return;
+
   const res = await formRef.value.validate();
   const valid = res.valid ?? res;
   if (!valid) return;
@@ -280,6 +409,8 @@ const save = async () => {
     return;
   }
 
+  const { fatherId, motherId } = resolveParents();
+
   const payload = {
     lastName: form.lastName,
     firstName: form.firstName,
@@ -287,17 +418,20 @@ const save = async () => {
     sex: form.sex,
     birthDate: form.birthDate || '',
     religion: form.religion,
+
     baptismYear: form.baptismYear || null,
     chrismationYear: form.chrismationYear || null,
     firstCommunionYear: form.firstCommunionYear || null,
     catechesis: form.catechesis,
-    massAndConfession: '', // пока пусто
+
+    massAndConfession: '',
     profession: '',
     workplace: '',
     phone: '',
+
     addressId: props.address.id,
-    fatherId: props.father?.id || null,
-    motherId: props.mother?.id || null,
+    fatherId,
+    motherId,
     childrenIds: [],
     isDeceased: false,
     deathYear: null,
@@ -308,14 +442,10 @@ const save = async () => {
   try {
     const childId = await peopleStore.addPerson(payload);
 
-    // updatePerson уже умеет обновлять childrenIds у родителей,
-    // но мы только что задали fatherId/motherId сразу при добавлении.
-    // Если хочешь гарантированную синхронизацию, можно дополнительно вызвать:
-    if (payload.fatherId || payload.motherId) {
-      await peopleStore.updatePerson(childId, {
-        fatherId: payload.fatherId,
-        motherId: payload.motherId,
-      });
+    // ВАЖНО: чтобы childrenIds родителей обновились (логика в updatePerson),
+    // вызываем updatePerson только если есть родители.
+    if (fatherId || motherId) {
+      await peopleStore.updatePerson(childId, { fatherId, motherId });
     }
 
     emit('created', childId);

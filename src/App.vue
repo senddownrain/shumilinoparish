@@ -1,48 +1,118 @@
 <!-- src/App.vue -->
 <template>
   <v-app>
-    <v-app-bar app color="primary" dark>
-      <v-app-bar-title>Shumilinoparish — Картотека</v-app-bar-title>
+    <v-app-bar color="primary" density="comfortable" elevation="1">
+      <!-- Назад (если включено страницей) -->
+      <v-btn
+        v-if="appUi.showBack"
+        icon="mdi-arrow-left"
+        variant="text"
+        @click="goBack"
+      />
+
+      <v-app-bar-title>{{ appBarTitle }}</v-app-bar-title>
+
       <v-spacer />
-      <v-tabs v-model="tab" fixed-tabs class="d-none d-sm-flex">
-        <v-tab @click="go('AddressList')">
-          Адреса
-        </v-tab>
-        <v-tab @click="go('PeopleList')">
-          Люди
-        </v-tab>
+
+      <!-- Action-кнопки справа (задаёт страница) -->
+      <template v-for="(a, idx) in appUi.actions" :key="idx">
+        <v-btn
+          :icon="a.icon"
+          variant="text"
+          :disabled="!!a.disabled"
+          :title="a.label || ''"
+          @click="onActionClick(a)"
+        />
+      </template>
+
+      <!-- Tabs только на md+ -->
+      <v-tabs
+        v-if="mdAndUp"
+        v-model="topTab"
+        fixed-tabs
+        class="ml-2"
+      >
+        <v-tab value="addresses" @click="goAddresses">Адреса</v-tab>
+        <v-tab value="people" @click="goPeople">Люди</v-tab>
       </v-tabs>
     </v-app-bar>
 
     <v-main>
-      <v-container class="py-4">
+      <v-container :fluid="true" :class="containerClass">
         <router-view />
       </v-container>
     </v-main>
+
+    <!-- Bottom navigation для мобилки -->
+    <v-bottom-navigation
+      v-if="smAndDown"
+      v-model="bottomNav"
+      color="primary"
+      grow
+    >
+      <v-btn value="addresses" @click="goAddresses">
+        <v-icon>mdi-home-search-outline</v-icon>
+        <span>Адреса</span>
+      </v-btn>
+
+      <v-btn value="people" @click="goPeople">
+        <v-icon>mdi-account-search-outline</v-icon>
+        <span>Люди</span>
+      </v-btn>
+    </v-bottom-navigation>
   </v-app>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useDisplay } from 'vuetify';
+import { useAppUiStore } from './stores/appUi';
 
 const route = useRoute();
 const router = useRouter();
+const appUi = useAppUiStore();
 
-const tab = computed({
-  get() {
-    const name = route.name?.toString() || '';
-    if (name.startsWith('Address')) return 0;
-    if (name.startsWith('People')) return 1;
-    return 0;
-  },
-  set() {
-    // управление табами идёт через router
-  },
+const { smAndDown, mdAndUp } = useDisplay();
+
+const section = computed(() => {
+  const name = route.name?.toString() || '';
+  if (name.startsWith('People')) return 'people';
+  return 'addresses';
 });
 
-const go = (name) => {
-  router.push({ name });
+const appBarTitle = computed(() => {
+  // если страница выставила title — используем его
+  if (appUi.title) return appUi.title;
+
+  // иначе дефолт по разделу
+  return section.value === 'people' ? 'Люди' : 'Адреса';
+});
+
+
+
+const containerClass = computed(() => (smAndDown.value ? 'pa-3' : 'pa-4'));
+
+const bottomNav = computed({
+  get: () => section.value,
+  set: () => {},
+});
+
+const topTab = computed({
+  get: () => section.value,
+  set: () => {},
+});
+
+const goAddresses = () => router.push({ name: 'AddressList' });
+const goPeople = () => router.push({ name: 'PeopleList' });
+
+const goBack = () => {
+  router.push(appUi.backTo || { name: 'AddressList' });
+};
+
+const onActionClick = (a) => {
+  if (typeof a.onClick === 'function') return a.onClick();
+  if (a.to) return router.push(a.to);
 };
 </script>
 

@@ -1,341 +1,330 @@
 <template>
   <div>
-    <v-row class="mb-4" align="center">
-      <v-col cols="12" md="6">
-        <v-btn
-          variant="text"
-          prepend-icon="mdi-arrow-left"
-          @click="goBack"
-        >
-          Назад к списку
-        </v-btn>
-      </v-col>
-    </v-row>
-
     <v-card>
-      <v-card-title>
-        Новый адрес
-      </v-card-title>
+      <v-card-title>Новый адрес</v-card-title>
+
       <v-card-text>
-        <v-alert
-          v-if="error"
-          type="error"
-          variant="outlined"
-          class="mb-3"
-        >
+        <v-alert v-if="error" type="error" variant="outlined" class="mb-3">
           {{ error }}
         </v-alert>
 
-        <!-- Форма адреса -->
-        <v-form ref="formRef" v-model="isValid">
-          <v-row>
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="form.localityType"
-                :items="localityTypeOptions"
-                label="Тип населённого пункта"
-                :rules="[required]"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="form.localityName"
-                label="Название населённого пункта"
-                :rules="[required]"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="form.street"
-                label="Улица"
-                :rules="[required]"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="form.house"
-                label="Дом"
-                :rules="[required]"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="form.apartment"
-                label="Квартира"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="form.phoneHome"
-                label="Домашний телефон"
-                prepend-inner-icon="mdi-phone"
-                variant="outlined"
-                density="comfortable"
-              />
-            </v-col>
-          </v-row>
-        </v-form>
+        <!-- ЕДИНАЯ форма адреса -->
+        <AddressForm
+          :value="addressForm"
+          @update:value="addressForm = $event"
+          ref="addressFormRef"
+          @validity-change="(v) => (isAddressValid = v)"
+        />
 
         <v-divider class="my-4" />
 
-        <!-- Блок добавления супругов -->
+        <!-- Взрослые жители (опционально) -->
         <v-switch
-          v-model="withSpouses"
-          label="Сразу добавить супругов (муж и жена)"
+          v-model="withAdults"
+          label="Добавить взрослых жителей (муж и/или жена)"
           inset
           class="mb-2"
         />
 
         <v-expand-transition>
-          <div v-if="withSpouses">
+          <div v-if="withAdults">
             <v-alert type="info" variant="outlined" class="mb-3">
-              При сохранении будут созданы:
-              <ul class="pl-6">
-                <li>муж и жена, привязанные к этому адресу;</li>
-                <li>брак между ними в коллекции "marriages".</li>
-              </ul>
+              Можно выбрать существующих людей или создать новых. Брак создаётся
+              <strong>только</strong> если добавлены и муж, и жена.
             </v-alert>
 
             <v-row>
               <!-- Муж -->
               <v-col cols="12" md="6">
-                <h3 class="text-subtitle-1 mb-2">Муж</h3>
-                <v-row>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="husband.lastName"
-                      label="Фамилия"
-                      :rules="[requiredIfSpouses]"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="husband.firstName"
-                      label="Имя"
-                      :rules="[requiredIfSpouses]"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="husband.middleName"
-                      label="Отчество"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="husband.birthDate"
-                      label="Дата рождения"
-                      type="date"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
+                <v-card variant="outlined" rounded="lg">
+                  <v-card-title class="text-subtitle-1">Муж</v-card-title>
+                  <v-card-text>
+                    <v-switch v-model="includeHusband" label="Добавить мужа" inset class="mb-2" />
 
-                  <v-col cols="12">
-                    <v-select
-                      v-model="husband.religion"
-                      :items="religionOptions"
-                      label="Вероисповедание"
-                      item-title="label"
-                      item-value="value"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-select
-                      v-model="husband.massAndConfession"
-                      :items="massConfessionOptions"
-                      label="Исповедь и месса"
-                      item-title="label"
-                      item-value="value"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                </v-row>
+                    <v-expand-transition>
+                      <div v-if="includeHusband">
+                        <v-radio-group v-model="husbandMode" inline class="mb-2">
+                          <v-radio label="Выбрать существующего" value="existing" />
+                          <v-radio label="Создать нового" value="new" />
+                        </v-radio-group>
+
+                        <div v-if="husbandMode === 'existing'">
+                          <v-autocomplete
+                            v-model="husbandExistingId"
+                            :items="malePeopleOptions"
+                            item-title="title"
+                            item-value="id"
+                            label="Существующий мужчина"
+                            variant="outlined"
+                            density="comfortable"
+                            clearable
+                          />
+                        </div>
+
+                        <div v-else>
+                          <v-row>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="husband.lastName"
+                                label="Фамилия"
+                                :rules="[requiredIfHusbandNew]"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="husband.firstName"
+                                label="Имя"
+                                :rules="[requiredIfHusbandNew]"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="husband.middleName"
+                                label="Отчество"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="husband.birthDate"
+                                label="Дата рождения"
+                                type="date"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12">
+                              <v-select
+                                v-model="husband.religion"
+                                :items="religionOptions"
+                                label="Вероисповедание"
+                                item-title="label"
+                                item-value="value"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12">
+                              <v-select
+                                v-model="husband.massAndConfession"
+                                :items="massConfessionOptions"
+                                label="Исповедь и месса"
+                                item-title="label"
+                                item-value="value"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                          </v-row>
+                        </div>
+                      </div>
+                    </v-expand-transition>
+                  </v-card-text>
+                </v-card>
               </v-col>
 
               <!-- Жена -->
               <v-col cols="12" md="6">
-                <h3 class="text-subtitle-1 mb-2">Жена</h3>
-                <v-row>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="wife.lastName"
-                      label="Фамилия"
-                      :rules="[requiredIfSpouses]"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="wife.firstName"
-                      label="Имя"
-                      :rules="[requiredIfSpouses]"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="wife.middleName"
-                      label="Отчество"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <v-text-field
-                      v-model="wife.birthDate"
-                      label="Дата рождения"
-                      type="date"
-                      variant="outlined"
-                      density="comfortable"
-                    />
-                  </v-col>
+                <v-card variant="outlined" rounded="lg">
+                  <v-card-title class="text-subtitle-1">Жена</v-card-title>
+                  <v-card-text>
+                    <v-switch v-model="includeWife" label="Добавить жену" inset class="mb-2" />
 
-                  <v-col cols="12">
-                    <v-select
-                      v-model="wife.religion"
-                      :items="religionOptions"
-                      label="Вероисповедание"
-                      item-title="label"
-                      item-value="value"
+                    <v-expand-transition>
+                      <div v-if="includeWife">
+                        <v-radio-group v-model="wifeMode" inline class="mb-2">
+                          <v-radio label="Выбрать существующую" value="existing" />
+                          <v-radio label="Создать новую" value="new" />
+                        </v-radio-group>
+
+                        <div v-if="wifeMode === 'existing'">
+                          <v-autocomplete
+                            v-model="wifeExistingId"
+                            :items="femalePeopleOptions"
+                            item-title="title"
+                            item-value="id"
+                            label="Существующая женщина"
+                            variant="outlined"
+                            density="comfortable"
+                            clearable
+                          />
+                        </div>
+
+                        <div v-else>
+                          <v-row>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="wife.lastName"
+                                label="Фамилия"
+                                :rules="[requiredIfWifeNew]"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="wife.firstName"
+                                label="Имя"
+                                :rules="[requiredIfWifeNew]"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="wife.middleName"
+                                label="Отчество"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="wife.birthDate"
+                                label="Дата рождения"
+                                type="date"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12">
+                              <v-select
+                                v-model="wife.religion"
+                                :items="religionOptions"
+                                label="Вероисповедание"
+                                item-title="label"
+                                item-value="value"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                            <v-col cols="12">
+                              <v-select
+                                v-model="wife.massAndConfession"
+                                :items="massConfessionOptions"
+                                label="Исповедь и месса"
+                                item-title="label"
+                                item-value="value"
+                                variant="outlined"
+                                density="comfortable"
+                              />
+                            </v-col>
+                          </v-row>
+                        </div>
+                      </div>
+                    </v-expand-transition>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+
+            <!-- Брак: только если добавили обоих -->
+            <v-expand-transition>
+              <div v-if="includeHusband && includeWife" class="mt-4">
+                <v-divider class="my-3" />
+                <h3 class="text-subtitle-1 mb-2">Брак</h3>
+                <v-row>
+                  <v-col cols="12" md="4">
+                    <v-text-field
+                      v-model.number="marriage.civilMarriageYear"
+                      label="Год гражданского брака"
+                      type="number"
                       variant="outlined"
                       density="comfortable"
                     />
                   </v-col>
-                  <v-col cols="12">
-                    <v-select
-                      v-model="wife.massAndConfession"
-                      :items="massConfessionOptions"
-                      label="Исповедь и месса"
-                      item-title="label"
-                      item-value="value"
+                  <v-col cols="12" md="4">
+                    <v-text-field
+                      v-model.number="marriage.churchMarriageYear"
+                      label="Год венчания"
+                      type="number"
                       variant="outlined"
                       density="comfortable"
                     />
+                  </v-col>
+                  <v-col cols="12" md="4" class="d-flex align-center">
+                    <v-switch v-model="marriage.isChurchMarried" label="Венчанный брак" inset />
                   </v-col>
                 </v-row>
-              </v-col>
-            </v-row>
-
-            <!-- Минимальные данные брака -->
-            <v-divider class="my-3" />
-            <h3 class="text-subtitle-1 mb-2">Брак</h3>
-            <v-row>
-              <v-col cols="12" md="4">
-                <v-text-field
-                  v-model.number="marriage.civilMarriageYear"
-                  label="Год гражданского брака"
-                  type="number"
-                  variant="outlined"
-                  density="comfortable"
-                />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-text-field
-                  v-model.number="marriage.churchMarriageYear"
-                  label="Год венчания"
-                  type="number"
-                  variant="outlined"
-                  density="comfortable"
-                />
-              </v-col>
-              <v-col cols="12" md="4" class="d-flex align-center">
-                <v-switch
-                  v-model="marriage.isChurchMarried"
-                  label="Венчанный брак"
-                  inset
-                />
-              </v-col>
-            </v-row>
+              </div>
+            </v-expand-transition>
           </div>
         </v-expand-transition>
       </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="goBack">
-          Отмена
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          :loading="saving"
-          :disabled="saving"
-          @click="save"
-        >
-          Сохранить
-        </v-btn>
-      </v-card-actions>
     </v-card>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAddressesStore } from '../stores/addresses';
-import { usePeopleStore } from '../stores/people';
-import { useMarriagesStore } from '../stores/marriages';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+
+import AddressForm from "../components/AddressForm.vue";
+import { useAddressesStore } from "../stores/addresses";
+import { usePeopleStore } from "../stores/people";
+import { useMarriagesStore } from "../stores/marriages";
+import { useAppUiStore } from "../stores/appUi";
 
 const router = useRouter();
+
+const appUi = useAppUiStore();
 const addressesStore = useAddressesStore();
 const peopleStore = usePeopleStore();
 const marriagesStore = useMarriagesStore();
 
-const formRef = ref(null);
-const isValid = ref(false);
+const addressFormRef = ref(null);
+const isAddressValid = ref(false);
+
 const saving = ref(false);
-const error = ref('');
+const error = ref("");
 
-const withSpouses = ref(false);
+const withAdults = ref(false);
 
-const form = reactive({
-  localityType: 'посёлок',
-  localityName: '',
-  street: '',
-  house: '',
-  apartment: '',
-  phoneHome: '',
+// адрес
+const addressForm = ref({
+  localityType: "посёлок",
+  localityName: "",
+  street: "",
+  house: "",
+  apartment: "",
+  phoneHome: "",
+  visitYears: [],
 });
 
+// муж/жена включены?
+const includeHusband = ref(true);
+const includeWife = ref(true);
+
+// режимы: existing/new
+const husbandMode = ref("new");
+const wifeMode = ref("new");
+
+// выбранные существующие
+const husbandExistingId = ref(null);
+const wifeExistingId = ref(null);
+
+// новые
 const husband = reactive({
-  lastName: '',
-  firstName: '',
-  middleName: '',
-  birthDate: '',
-  religion: '',
-  massAndConfession: '',
+  lastName: "",
+  firstName: "",
+  middleName: "",
+  birthDate: "",
+  religion: "",
+  massAndConfession: "",
 });
 
 const wife = reactive({
-  lastName: '',
-  firstName: '',
-  middleName: '',
-  birthDate: '',
-  religion: '',
-  massAndConfession: '',
+  lastName: "",
+  firstName: "",
+  middleName: "",
+  birthDate: "",
+  religion: "",
+  massAndConfession: "",
 });
 
 const marriage = reactive({
@@ -344,146 +333,259 @@ const marriage = reactive({
   isChurchMarried: false,
 });
 
-const localityTypeOptions = ['посёлок', 'город', 'деревня'];
-
 const religionOptions = [
-  { label: 'Католик', value: 'католик' },
-  { label: 'Православный', value: 'православный' },
-  { label: 'Старовер', value: 'старовер' },
-  { label: 'Некрещенный', value: 'некрещенный' },
-  { label: 'Протестант', value: 'протестант' },
+  { label: "Католик", value: "католик" },
+  { label: "Православный", value: "православный" },
+  { label: "Старовер", value: "старовер" },
+  { label: "Некрещенный", value: "некрещенный" },
+  { label: "Протестант", value: "протестант" },
 ];
 
 const massConfessionOptions = [
-  { label: 'Часто', value: 'часто' },
-  { label: 'Регулярно', value: 'регулярно' },
-  { label: 'Редко', value: 'редко' },
-  { label: 'Раз в год', value: 'раз в год' },
-  { label: 'Давно', value: 'давно' },
+  { label: "Часто", value: "часто" },
+  { label: "Регулярно", value: "регулярно" },
+  { label: "Редко", value: "редко" },
+  { label: "Раз в год", value: "раз в год" },
+  { label: "Давно", value: "давно" },
 ];
 
-const required = (v) => !!v || 'Обязательное поле';
-const requiredIfSpouses = (v) =>
-  !withSpouses.value || !!v || 'Обязательное поле';
+const fullName = (p) => [p.lastName, p.firstName, p.middleName].filter(Boolean).join(" ").trim();
 
-const goBack = () => {
-  router.push({ name: 'AddressList' });
+const malePeopleOptions = computed(() =>
+  peopleStore.people
+    .filter((p) => p.sex === "male")
+    .map((p) => ({ id: p.id, title: fullName(p) || "(без имени)" }))
+    .sort((a, b) => a.title.localeCompare(b.title, "ru"))
+);
+
+const femalePeopleOptions = computed(() =>
+  peopleStore.people
+    .filter((p) => p.sex === "female")
+    .map((p) => ({ id: p.id, title: fullName(p) || "(без имени)" }))
+    .sort((a, b) => a.title.localeCompare(b.title, "ru"))
+);
+
+// Валидация супругов (логическая)
+const spouseInputsOk = computed(() => {
+  if (!withAdults.value) return true;
+
+  // можно выключить обоих — тогда просто адрес
+  if (!includeHusband.value && !includeWife.value) return true;
+
+  // муж
+  if (includeHusband.value) {
+    if (husbandMode.value === "existing") {
+      if (!husbandExistingId.value) return false;
+    } else {
+      if (!husband.lastName || !husband.firstName) return false;
+    }
+  }
+
+  // жена
+  if (includeWife.value) {
+    if (wifeMode.value === "existing") {
+      if (!wifeExistingId.value) return false;
+    } else {
+      if (!wife.lastName || !wife.firstName) return false;
+    }
+  }
+
+  // защита от выбора одного и того же человека
+  if (
+    includeHusband.value &&
+    includeWife.value &&
+    husbandMode.value === "existing" &&
+    wifeMode.value === "existing" &&
+    husbandExistingId.value &&
+    husbandExistingId.value === wifeExistingId.value
+  ) {
+    return false;
+  }
+
+  return true;
+});
+
+const canSave = computed(() => {
+  return isAddressValid.value && spouseInputsOk.value && !saving.value;
+});
+
+// rules для полей (чтобы Vuetify подсвечивал в "new" режиме)
+const requiredIfHusbandNew = (v) => {
+  if (!withAdults.value || !includeHusband.value) return true;
+  if (husbandMode.value !== "new") return true;
+  return !!v || "Обязательное поле";
+};
+const requiredIfWifeNew = (v) => {
+  if (!withAdults.value || !includeWife.value) return true;
+  if (wifeMode.value !== "new") return true;
+  return !!v || "Обязательное поле";
+};
+
+const goBack = () => router.push({ name: "AddressList" });
+
+const setAppBar = () => {
+  appUi.set({
+    title: "Новый адрес",
+    showBack: true,
+    backTo: { name: "AddressList" },
+    actions: [
+      {
+        icon: "mdi-content-save",
+        label: "Сохранить",
+        onClick: save,
+        disabled: !canSave.value,
+        loading: saving.value,
+      },
+    ],
+  });
+};
+
+onMounted(async () => {
+  // чтобы можно было выбирать из существующих
+  if (!peopleStore.people.length && !peopleStore.loading) {
+    await peopleStore.fetchPeople();
+  }
+  setAppBar();
+});
+
+watch([isAddressValid, spouseInputsOk, saving], () => setAppBar());
+
+onUnmounted(() => {
+  appUi.reset();
+});
+
+const resolvePersonId = async ({ mode, existingId, payloadIfNew, addressId }) => {
+  if (mode === "none") return null;
+
+  if (mode === "existing") {
+    // привязываем существующего человека к новому адресу
+    await peopleStore.updatePerson(existingId, { addressId });
+    return existingId;
+  }
+
+  // new
+  return await peopleStore.addPerson({ ...payloadIfNew, addressId });
 };
 
 const save = async () => {
-  error.value = '';
+  error.value = "";
 
-  if (!formRef.value) return;
-  const res = await formRef.value.validate();
-  const valid = res.valid ?? res;
-  if (!valid) return;
+  // 1) валидируем адрес
+  if (!addressFormRef.value || !(await addressFormRef.value.validate())) return;
 
-  // Если надо создать супругов — минимальная проверка, что есть имена
-  if (withSpouses.value) {
-    if (!husband.firstName || !husband.lastName || !wife.firstName || !wife.lastName) {
-      error.value = 'Для супругов нужно указать как минимум фамилию и имя.';
-      return;
-    }
+  // 2) логическая валидность супругов
+  if (!spouseInputsOk.value) {
+    error.value = "Проверьте данные мужа/жены (или выбор существующих).";
+    return;
   }
 
   saving.value = true;
 
   try {
-    // 1. Создаём адрес
-    const addressPayload = {
-      localityType: form.localityType,
-      localityName: form.localityName,
-      street: form.street,
-      house: form.house,
-      apartment: form.apartment,
-      phoneHome: form.phoneHome,
-      visitYears: [],
-    };
+    // 1) создаём адрес (visitYears приходит из AddressForm)
+    const a = addressForm.value || {};
+    const addressId = await addressesStore.addAddress({
+      localityType: a.localityType || "",
+      localityName: a.localityName || "",
+      street: a.street || "",
+      house: a.house || "",
+      apartment: a.apartment || "",
+      phoneHome: a.phoneHome || "",
+      visitYears: Array.isArray(a.visitYears) ? a.visitYears : [],
+    });
 
-    const addressId = await addressesStore.addAddress(addressPayload);
-
-    // 2. Если не нужно создавать супругов — просто переходим к адресу
-    if (!withSpouses.value) {
-      router.push({ name: 'AddressDetail', params: { id: addressId } });
+    // 2) если взрослых не добавляем — готово
+    if (!withAdults.value || (!includeHusband.value && !includeWife.value)) {
+      router.push({ name: "AddressDetail", params: { id: addressId } });
       return;
     }
 
-    // 3. Создаём мужа и жену
-    const husbandPayload = {
-      firstName: husband.firstName,
-      lastName: husband.lastName,
-      middleName: husband.middleName,
-      sex: 'male',
-      birthDate: husband.birthDate || '',
-      profession: '',
-      workplace: '',
-      religion: husband.religion || '',
-      phone: '',
-      baptismYear: null,
-      chrismationYear: null,
-      firstCommunionYear: null,
-      catechesis: null,
-      massAndConfession: husband.massAndConfession || '',
-      addressId,
-      fatherId: null,
-      motherId: null,
-      childrenIds: [],
-      isDeceased: false,
-      deathYear: null,
-      marriageIds: [],
-    };
+    // 3) создаём/привязываем мужа/жену (каждый отдельно)
+    const husbandId = includeHusband.value
+      ? await resolvePersonId({
+          mode: husbandMode.value,
+          existingId: husbandExistingId.value,
+          payloadIfNew: {
+            firstName: husband.firstName,
+            lastName: husband.lastName,
+            middleName: husband.middleName,
+            sex: "male",
+            birthDate: husband.birthDate || "",
+            profession: "",
+            workplace: "",
+            religion: husband.religion || "",
+            phone: "",
+            baptismYear: null,
+            chrismationYear: null,
+            firstCommunionYear: null,
+            catechesis: null,
+            massAndConfession: husband.massAndConfession || "",
+            fatherId: null,
+            motherId: null,
+            childrenIds: [],
+            isDeceased: false,
+            deathYear: null,
+            marriageIds: [],
+          },
+          addressId,
+        })
+      : null;
 
-    const wifePayload = {
-      firstName: wife.firstName,
-      lastName: wife.lastName,
-      middleName: wife.middleName,
-      sex: 'female',
-      birthDate: wife.birthDate || '',
-      profession: '',
-      workplace: '',
-      religion: wife.religion || '',
-      phone: '',
-      baptismYear: null,
-      chrismationYear: null,
-      firstCommunionYear: null,
-      catechesis: null,
-      massAndConfession: wife.massAndConfession || '',
-      addressId,
-      fatherId: null,
-      motherId: null,
-      childrenIds: [],
-      isDeceased: false,
-      deathYear: null,
-      marriageIds: [],
-    };
+    const wifeId = includeWife.value
+      ? await resolvePersonId({
+          mode: wifeMode.value,
+          existingId: wifeExistingId.value,
+          payloadIfNew: {
+            firstName: wife.firstName,
+            lastName: wife.lastName,
+            middleName: wife.middleName,
+            sex: "female",
+            birthDate: wife.birthDate || "",
+            profession: "",
+            workplace: "",
+            religion: wife.religion || "",
+            phone: "",
+            baptismYear: null,
+            chrismationYear: null,
+            firstCommunionYear: null,
+            catechesis: null,
+            massAndConfession: wife.massAndConfession || "",
+            fatherId: null,
+            motherId: null,
+            childrenIds: [],
+            isDeceased: false,
+            deathYear: null,
+            marriageIds: [],
+          },
+          addressId,
+        })
+      : null;
 
-    const husbandId = await peopleStore.addPerson(husbandPayload);
-    const wifeId = await peopleStore.addPerson(wifePayload);
+    // 4) брак создаём ТОЛЬКО если есть оба
+    if (husbandId && wifeId) {
+      const marriageId = await marriagesStore.createMarriage({
+        husbandId,
+        wifeId,
+        civilMarriageYear: marriage.civilMarriageYear,
+        churchMarriageYear: marriage.churchMarriageYear,
+        isChurchMarried: marriage.isChurchMarried,
+      });
 
-    // 4. Создаём брак
-    const marriageId = await marriagesStore.createMarriage({
-      husbandId,
-      wifeId,
-      civilMarriageYear: marriage.civilMarriageYear,
-      churchMarriageYear: marriage.churchMarriageYear,
-      isChurchMarried: marriage.isChurchMarried,
-    });
+      const addMarriageToPerson = async (personId) => {
+        const p = peopleStore.people.find((x) => x.id === personId);
+        const ids = Array.isArray(p?.marriageIds) ? [...p.marriageIds] : [];
+        if (!ids.includes(marriageId)) ids.push(marriageId);
+        await peopleStore.updatePerson(personId, { marriageIds: ids });
+      };
 
-    // 5. Добавляем marriageIds обоим
-    const addMarriageToPerson = async (personId) => {
-      const p = peopleStore.people.find((x) => x.id === personId);
-      const ids = Array.isArray(p?.marriageIds) ? [...p.marriageIds] : [];
-      if (!ids.includes(marriageId)) ids.push(marriageId);
-      await peopleStore.updatePerson(personId, { marriageIds: ids });
-    };
+      await addMarriageToPerson(husbandId);
+      await addMarriageToPerson(wifeId);
+    }
 
-    await addMarriageToPerson(husbandId);
-    await addMarriageToPerson(wifeId);
-
-    router.push({ name: 'AddressDetail', params: { id: addressId } });
+    router.push({ name: "AddressDetail", params: { id: addressId } });
   } catch (e) {
-    console.error('Ошибка при создании адреса и супругов:', e);
-    error.value = 'Не удалось сохранить адрес или супругов. Попробуйте ещё раз.';
+    console.error("Ошибка при создании адреса/жителей:", e);
+    error.value = "Не удалось сохранить. Попробуйте ещё раз.";
   } finally {
     saving.value = false;
   }
