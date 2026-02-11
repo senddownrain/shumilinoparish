@@ -74,6 +74,7 @@
                 v-if="mainHusband"
                 :person="mainHusband"
                 role-label="Муж"
+                mode="compact"
                 @open="goToPerson"
               />
             </v-col>
@@ -83,6 +84,7 @@
                 v-if="mainWife"
                 :person="mainWife"
                 role-label="Жена"
+                mode="compact"
                 @open="goToPerson"
               />
             </v-col>
@@ -137,7 +139,7 @@
 
           <v-row v-else>
             <v-col v-for="p in residentsSorted" :key="p.id" cols="12" md="6">
-              <PersonInfoCard :person="p" @open="goToPerson" />
+              <PersonInfoCard :person="p" mode="compact" @open="goToPerson" />
             </v-col>
           </v-row>
         </div>
@@ -213,7 +215,7 @@
       <v-card-text>
         <v-row>
           <v-col v-for="p in otherResidentsSorted" :key="p.id" cols="12" md="6">
-            <PersonInfoCard :person="p" @open="goToPerson" />
+            <PersonInfoCard :person="p" mode="compact" @open="goToPerson" />
           </v-col>
         </v-row>
       </v-card-text>
