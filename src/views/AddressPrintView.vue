@@ -6,6 +6,22 @@
         Печать / Сохранить в PDF
       </button>
       <button class="btn" @click="goBack">Назад</button>
+
+      <button
+  class="btn"
+  @click="setLayout('table')"
+  :disabled="layoutMode === 'table'"
+>
+  Таблица
+</button>
+
+<button
+  class="btn"
+  @click="setLayout('line')"
+  :disabled="layoutMode === 'line'"
+>
+  Строкой
+</button>
     </div>
 
     <header class="report-header">
@@ -45,10 +61,24 @@
          
         </div>
 
+        
+
         <!-- Супруги -->
         <div v-if="coupleByAddressId[a.id]" class="section">
           <div class="section-title">Супруги</div>
 
+            <!-- РЕЖИМ: СТРОКОЙ -->
+
+            <div v-if="layoutMode === 'line'" class="line-list">
+    <div class="line-item">
+      {{ inlinePersonText("Муж", coupleByAddressId[a.id].husband) }}
+    </div>
+    <div class="line-item">
+      {{ inlinePersonText("Жена", coupleByAddressId[a.id].wife) }}
+    </div>
+  </div>
+<!-- РЕЖИМ: ТАБЛИЦА -->
+  <div v-else class="table-wrap">
           <div class="table-wrap">
             <table class="wide-table">
               <thead>
@@ -97,7 +127,7 @@
               </tbody>
             </table>
           </div>
-
+</div>
           <div class="marriage-box">
             <div class="section-subtitle">Брак</div>
             <div class="kv">
@@ -137,6 +167,12 @@
           </div>
 
           <div v-if="!(childrenByAddressId[a.id] || []).length" class="muted">—</div>
+
+          <div v-else-if="layoutMode === 'line'" class="line-list">
+    <div v-for="c in childrenByAddressId[a.id]" :key="c.id" class="line-item">
+      {{ inlinePersonText("Ребёнок", c) }}
+    </div>
+  </div>
 
           <div v-else class="table-wrap">
             <table class="wide-table">
@@ -181,6 +217,12 @@
           </div>
 
           <div v-if="!(residentsToShowByAddressId[a.id] || []).length" class="muted">—</div>
+
+          <div v-else-if="layoutMode === 'line'" class="line-list">
+    <div v-for="p in residentsToShowByAddressId[a.id]" :key="p.id" class="line-item">
+      {{ inlinePersonText("", p) }}
+    </div>
+  </div>
 
           <div v-else class="table-wrap">
             <table class="wide-table">
@@ -243,6 +285,14 @@ const currentYear = new Date().getFullYear();
 const loadingAny = computed(
   () => !!(addressesStore.loading || peopleStore.loading || marriagesStore.loading)
 );
+
+const layoutMode = computed(() => (route.query.layout === "line" ? "line" : "table"));
+
+const setLayout = async (mode) => {
+  await router.replace({
+    query: { ...route.query, layout: mode },
+  });
+};
 
 const normalize = (s) =>
   String(s || "")
@@ -641,6 +691,51 @@ const extraAddressFields = (a) => {
   return rows;
 };
 
+const pushIf = (arr, label, value) => {
+  const v = String(value || "").trim();
+  if (!v) return;
+  arr.push(`${label}: ${v}`);
+};
+
+const inlinePersonText = (role, p) => {
+  if (!p) return "";
+
+  const parts = [];
+  const name = fullName(p);
+  const rolePrefix = role ? `${role}: ` : "";
+  const head = `${rolePrefix}${name || ""}`.trim();
+  if (head) parts.push(head);
+
+  // базовые
+  pushIf(parts, "пол", sexLabel(p));
+  pushIf(parts, "рожд.", p.birthDate);
+  pushIf(parts, "тел", p.phone);
+  pushIf(parts, "религия", p.religion);
+  pushIf(parts, "профессия", p.profession);
+  pushIf(parts, "работа", p.workplace);
+
+  // церковная часть
+  pushIf(parts, "катехезы", triLabel(p.catechesis));
+  pushIf(parts, "месса/исповедь", p.massAndConfession);
+
+  const sac = sacramentsLine(p);
+  // sacramentsLine у тебя возвращает вроде "крещ.: ... мироп.: ...", там может быть пусто
+  if (String(sac || "").trim()) parts.push(sac);
+
+  // связи (без айди)
+  pushIf(parts, "родители", parentsText(p));
+  pushIf(parts, "дети", childrenNamesText(p));
+  pushIf(parts, "браки", marriagesText(p));
+
+  // статус
+  pushIf(parts, "статус", lifeStatus(p));
+
+  // доп. поля
+  pushIf(parts, "прочее", extraPersonText(p));
+
+  return parts.join(" · ");
+};  
+
 /** доп. поля брака (без id/ссылок) */
 const extraMarriageFields = (m) => {
   if (!m || typeof m !== "object") return [];
@@ -876,6 +971,32 @@ onMounted(async () => {
   }
 
   .wide-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+
+  
+}
+
+.line-list {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.line-item {
+  padding: 6px 0;
+  border-top: 1px dashed #e5e5e5;
+  overflow-wrap: anywhere;
+}
+
+.line-item:first-child {
+  border-top: none;
+}
+
+@media print {
+  .line-item {
     break-inside: avoid;
     page-break-inside: avoid;
   }
